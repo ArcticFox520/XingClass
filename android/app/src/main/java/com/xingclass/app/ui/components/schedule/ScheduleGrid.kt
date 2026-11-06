@@ -96,7 +96,7 @@ fun ScheduleGrid(
                 state.courses.isEmpty() && state.error != null ->
                     GridError(error = state.error ?: AppError.Unknown, onRetry = onRetry)
 
-                state.courses.isEmpty() -> GridEmpty(showWeekHint = state.week != null && !state.isCurrentWeek)
+                state.courses.isEmpty() -> GridEmpty()
 
                 else -> ScheduleGridBody(
                     placements = placements,
@@ -226,15 +226,18 @@ private fun GridLoading() {
 }
 
 @Composable
-private fun GridEmpty(showWeekHint: Boolean = false) {
+private fun GridEmpty() {
     val colors = LocalNeumorphicColors.current
-    GridMessage(
-        title = stringResource(R.string.schedule_empty_title),
-        body = stringResource(
-            if (showWeekHint) R.string.schedule_empty_week_hint else R.string.schedule_empty_hint,
-        ),
-        titleColor = colors.textPrimary,
-    )
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.schedule_empty_title),
+            style = XingClassType.bodyStrong,
+            color = colors.textPrimary,
+        )
+    }
 }
 
 @Composable
@@ -276,32 +279,3 @@ private fun GridError(
     }
 }
 
-@Composable
-private fun GridMessage(
-    title: String,
-    body: String,
-    titleColor: androidx.compose.ui.graphics.Color,
-) {
-    val colors = LocalNeumorphicColors.current
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(XingSpacing.lg),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            text = title,
-            style = XingClassType.bodyStrong,
-            color = titleColor,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(XingSpacing.xs))
-        Text(
-            text = body,
-            style = XingClassType.caption,
-            color = colors.textSecondary,
-            textAlign = TextAlign.Center,
-        )
-    }
-}

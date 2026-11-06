@@ -212,15 +212,6 @@ fun LoginScreen(
         }
 
         Spacer(Modifier.height(XingSpacing.xl))
-
-        Text(
-            text = stringResource(R.string.login_privacy_hint),
-            style = XingClassType.caption,
-            color = colors.textTertiary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 8.dp),
-        )
-
         Box(Modifier.height(XingSpacing.sm))
     }
 }

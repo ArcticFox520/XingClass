@@ -84,6 +84,9 @@ object ChaoxingLessonParser {
         }.filter { !it.title.isNullOrBlank() }
 
         val curriculum = findCurriculum(root, depth = 0)
+        val lessonTimes = (curriculum?.get("lessonTimeConfigArray") as? JsonArray)
+            ?.map { element -> (element as? JsonPrimitive)?.content ?: "" }
+            ?: emptyList()
         return LessonPayload.Lessons(
             ChaoxingScheduleDto(
                 lessons = lessons,
@@ -91,6 +94,7 @@ object ChaoxingLessonParser {
                 realCurrentWeek = curriculum?.intOf("realCurrentWeek")
                     ?: curriculum?.intOf("currentWeek"),
                 maxWeek = curriculum?.intOf("maxWeek"),
+                lessonTimes = lessonTimes,
             ),
         )
     }

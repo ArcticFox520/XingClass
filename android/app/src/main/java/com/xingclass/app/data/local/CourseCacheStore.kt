@@ -50,6 +50,7 @@ class FileCourseCacheStore(
                 week = envelope.week.coerceIn(1, maxWeek),
                 realCurrentWeek = envelope.realCurrentWeek.coerceIn(1, maxWeek),
                 maxWeek = maxWeek,
+                lessonTimes = envelope.lessonTimes,
             )
         } catch (t: Throwable) {
             runCatching { file.delete() }
@@ -67,6 +68,7 @@ class FileCourseCacheStore(
                 week = snapshot.week,
                 realCurrentWeek = snapshot.realCurrentWeek,
                 maxWeek = snapshot.maxWeek,
+                lessonTimes = snapshot.lessonTimes,
             ),
         )
         val temporary = File(file.parentFile, "${file.name}.tmp")
@@ -100,10 +102,11 @@ class FileCourseCacheStore(
         val week: Int = 1,
         val realCurrentWeek: Int = 1,
         val maxWeek: Int = 1,
+        val lessonTimes: List<String> = emptyList(),
     )
 
     private companion object {
-        /** v2 added the week / realCurrentWeek / maxWeek metadata. Older caches are discarded. */
-        const val CACHE_VERSION = 2
+        /** v3 added lessonTimes; v2 added week metadata. Older caches are discarded. */
+        const val CACHE_VERSION = 3
     }
 }

@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.xingclass.app.R
+import com.xingclass.app.core.AppResult
+import com.xingclass.app.domain.model.ExportDocument
 import com.xingclass.app.domain.model.ThemeMode
 import com.xingclass.app.domain.repository.AuthRepository
 import com.xingclass.app.domain.repository.CourseRepository
+import com.xingclass.app.domain.repository.DiagnosticsRepository
 import com.xingclass.app.domain.repository.SettingsRepository
 import com.xingclass.app.ui.util.UiText
 import com.xingclass.app.ui.util.maskAccount
@@ -25,12 +28,14 @@ data class SettingsUiState(
     val versionName: String = "",
     val message: UiText? = null,
     val loggingOut: Boolean = false,
+    val exportDocument: ExportDocument? = null,
 )
 
 class SettingsViewModel(
     private val authRepository: AuthRepository,
     private val courseRepository: CourseRepository,
     private val settingsRepository: SettingsRepository,
+    private val diagnosticsRepository: DiagnosticsRepository,
     versionName: String,
 ) : ViewModel() {
 
@@ -77,6 +82,38 @@ class SettingsViewModel(
         _state.update { it.copy(message = null) }
     }
 
+    fun exportLogs() {
+        viewModelScope.launch {
+            when (val result = diagnosticsRepository.exportLogs()) {
+                is AppResult.Success -> _state.update { it.copy(exportDocument = result.value) }
+                is AppResult.Failure -> _state.update {
+                    it.copy(message = UiText.res(R.string.settings_export_failed))
+                }
+            }
+        }
+    }
+
+    fun exportCourses() {
+        viewModelScope.launch {
+            when (val result = diagnosticsRepository.exportCourses()) {
+                is AppResult.Success -> _state.update { it.copy(exportDocument = result.value) }
+                is AppResult.Failure -> _state.update {
+                    it.copy(
+                        message = if (result.error == com.xingclass.app.core.AppError.NoData) {
+                            UiText.res(R.string.settings_export_no_data)
+                        } else {
+                            UiText.res(R.string.settings_export_failed)
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    fun consumeExport() {
+        _state.update { it.copy(exportDocument = null) }
+    }
+
     fun logout(onLoggedOut: () -> Unit) {
         if (_state.value.loggingOut) return
         _state.update { it.copy(loggingOut = true) }
@@ -93,10 +130,17 @@ class SettingsViewModel(
             authRepository: AuthRepository,
             courseRepository: CourseRepository,
             settingsRepository: SettingsRepository,
+            diagnosticsRepository: DiagnosticsRepository,
             versionName: String,
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                SettingsViewModel(authRepository, courseRepository, settingsRepository, versionName)
+                SettingsViewModel(
+                    authRepository = authRepository,
+                    courseRepository = courseRepository,
+                    settingsRepository = settingsRepository,
+                    diagnosticsRepository = diagnosticsRepository,
+                    versionName = versionName,
+                )
             }
         }
     }

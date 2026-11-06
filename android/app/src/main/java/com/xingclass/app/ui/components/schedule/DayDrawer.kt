@@ -35,11 +35,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.xingclass.app.R
 import com.xingclass.app.domain.model.Course
+import com.xingclass.app.domain.model.PeriodTime
+import com.xingclass.app.domain.model.PeriodTimes
 import com.xingclass.app.ui.components.neumorphic.NeumorphicBadge
 import com.xingclass.app.ui.components.neumorphic.NeumorphicElevation
 import com.xingclass.app.ui.components.neumorphic.NeumorphicIconButton
@@ -68,6 +69,7 @@ fun DayDrawer(
     dayIndex: Int,
     date: LocalDate,
     courses: List<Course>,
+    periodTimes: List<PeriodTime?>,
     onDismiss: () -> Unit,
 ) {
     val colors = LocalNeumorphicColors.current
@@ -102,6 +104,7 @@ fun DayDrawer(
                     dayIndex = dayIndex,
                     date = date,
                     courses = courses,
+                    periodTimes = periodTimes,
                     onDismiss = onDismiss,
                 )
             }
@@ -114,6 +117,7 @@ private fun DayDrawerPanel(
     dayIndex: Int,
     date: LocalDate,
     courses: List<Course>,
+    periodTimes: List<PeriodTime?>,
     onDismiss: () -> Unit,
 ) {
     val colors = LocalNeumorphicColors.current
@@ -147,11 +151,13 @@ private fun DayDrawerPanel(
                     color = colors.textSecondary,
                 )
             }
-            NeumorphicBadge(
-                text = stringResource(R.string.day_drawer_section_count, courses.size),
-                contentColor = colors.textSecondary,
-            )
-            Spacer(Modifier.width(XingSpacing.sm))
+            if (courses.isNotEmpty()) {
+                NeumorphicBadge(
+                    text = stringResource(R.string.day_drawer_section_count, courses.sumOf { it.span }),
+                    contentColor = colors.textSecondary,
+                )
+                Spacer(Modifier.width(XingSpacing.sm))
+            }
             NeumorphicIconButton(
                 onClick = onDismiss,
                 icon = Icons.Filled.Close,
@@ -180,23 +186,28 @@ private fun DayDrawerPanel(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(insetShape)
-                    .padding(10.dp),
+                    .padding(12.dp),
             ) {
                 if (courses.isEmpty()) {
-                    EmptyDayHint(
-                        title = stringResource(R.string.day_drawer_empty_title),
-                        hint = stringResource(R.string.day_drawer_empty_hint),
+                    Box(
                         modifier = Modifier.fillMaxSize(),
-                    )
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.day_drawer_empty_title),
+                            style = XingClassType.bodyStrong,
+                            color = colors.textPrimary,
+                        )
+                    }
                 } else {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(XingSpacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         courses.forEach { course ->
-                            DrawerCourseRow(course = course)
+                            DrawerCourseRow(course = course, periodTimes = periodTimes)
                         }
                     }
                 }
@@ -206,18 +217,24 @@ private fun DayDrawerPanel(
 }
 
 @Composable
-private fun DrawerCourseRow(course: Course) {
+private fun DrawerCourseRow(course: Course, periodTimes: List<PeriodTime?>) {
     val colors = LocalNeumorphicColors.current
     val palette = colors.paletteFor(course.color)
     val shape = RoundedCornerShape(XingRadii.small)
 
-    val rangeText = if (course.span <= 1) {
-        course.start.toString()
-    } else {
-        stringResource(R.string.course_period_short_range, course.start, course.endPeriod)
-    }
     val unknownLocation = stringResource(R.string.course_location_unknown)
     val location = remember(course.location) { parseLocation(course.location) }
+    val courseTime = remember(course, periodTimes) {
+        PeriodTimes.forCourse(course, periodTimes)
+    }
+    val place = if (location.hasSplit) {
+        listOfNotNull(location.building, location.room)
+    } else {
+        listOfNotNull(location.raw ?: location.building)
+    }
+    val subtitle = (
+        place + listOfNotNull(course.teacher?.takeIf { it.isNotBlank() })
+        ).joinToString(" · ").ifEmpty { unknownLocation }
 
     Row(
         modifier = Modifier
@@ -233,19 +250,28 @@ private fun DrawerCourseRow(course: Course) {
             .padding(horizontal = XingSpacing.md, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.width(46.dp)) {
-            Text(
-                text = rangeText,
-                style = XingClassType.label.copy(fontWeight = FontWeight.SemiBold),
-                color = palette.content,
-                maxLines = 1,
-            )
-            Text(
-                text = stringResource(R.string.course_period_unit),
-                style = XingClassType.micro,
-                color = palette.content,
-                maxLines = 1,
-            )
+        Column(modifier = Modifier.width(54.dp)) {
+            if (courseTime != null) {
+                Text(
+                    text = courseTime.start,
+                    style = XingClassType.drawerTimeStart,
+                    color = palette.content,
+                    maxLines = 1,
+                )
+                Text(
+                    text = courseTime.end,
+                    style = XingClassType.drawerTimeEnd,
+                    color = palette.content,
+                    maxLines = 1,
+                )
+            } else {
+                Text(
+                    text = "—",
+                    style = XingClassType.drawerTimeEnd,
+                    color = palette.content,
+                    maxLines = 1,
+                )
+            }
         }
         Spacer(Modifier.width(XingSpacing.sm))
         Column(modifier = Modifier.weight(1f)) {
@@ -257,54 +283,13 @@ private fun DrawerCourseRow(course: Course) {
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
-            when {
-                location.building != null && location.room != null -> {
-                    Text(
-                        text = location.building.orEmpty(),
-                        style = XingClassType.caption,
-                        color = palette.content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = location.room.orEmpty(),
-                        style = XingClassType.caption,
-                        color = palette.content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                location.hasLocation -> {
-                    Text(
-                        text = location.raw ?: location.building ?: location.room.orEmpty(),
-                        style = XingClassType.caption,
-                        color = palette.content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                else -> {
-                    Text(
-                        text = unknownLocation,
-                        style = XingClassType.caption,
-                        color = palette.content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            if (!course.teacher.isNullOrBlank()) {
-                Spacer(Modifier.height(1.dp))
-                Text(
-                    text = course.teacher,
-                    style = XingClassType.caption,
-                    color = palette.content,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Text(
+                text = subtitle,
+                style = XingClassType.caption,
+                color = palette.content,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

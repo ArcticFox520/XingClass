@@ -7,6 +7,7 @@ data class CourseCacheSnapshot(
     val week: Int = 1,
     val realCurrentWeek: Int = 1,
     val maxWeek: Int = 1,
+    val lessonTimes: List<String> = emptyList(),
 )
 
 /** Result of checking the locally persisted Chaoxing session. */

@@ -189,6 +189,7 @@ class ScheduleViewModel(
                 week = snapshot.week,
                 realCurrentWeek = snapshot.realCurrentWeek,
                 maxWeek = snapshot.maxWeek,
+                lessonTimes = snapshot.lessonTimes,
                 loading = false,
                 fromCache = fromCache,
             )

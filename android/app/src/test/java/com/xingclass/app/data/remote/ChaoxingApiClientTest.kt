@@ -153,7 +153,8 @@ class ChaoxingApiClientTest {
     fun `week query parameter selects the teaching week and metadata is parsed`() = runTest {
         server.enqueue(
             json(
-                """{"data":{"curriculum":{"currentWeek":10,"realCurrentWeek":10,"maxWeek":22},
+                """{"data":{"curriculum":{"currentWeek":10,"realCurrentWeek":10,"maxWeek":22,
+                   "lessonTimeConfigArray":["08:30-09:15"]},
                    "lessonArray":[{"name":"示例课程","dayOfWeek":1,"beginNumber":1,"length":2}]}}""",
             ),
         )
@@ -165,6 +166,7 @@ class ChaoxingApiClientTest {
         assertEquals(10, schedule.currentWeek)
         assertEquals(10, schedule.realCurrentWeek)
         assertEquals(22, schedule.maxWeek)
+        assertEquals(listOf("08:30-09:15"), schedule.lessonTimes)
 
         val request = server.takeRequest()
         assertEquals("/pc/curriculum/getMyLessons?curTime=123&week=9", request.path)

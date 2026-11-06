@@ -194,6 +194,21 @@ object XingClassType {
         lineHeight = 14.sp,
         fontWeight = FontWeight.Medium,
     )
+    val periodTime = TextStyle(
+        fontSize = 8.sp,
+        lineHeight = 9.sp,
+        fontWeight = FontWeight.Normal,
+    )
+    val drawerTimeStart = TextStyle(
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
+    val drawerTimeEnd = TextStyle(
+        fontSize = 10.sp,
+        lineHeight = 13.sp,
+        fontWeight = FontWeight.Normal,
+    )
     val drawerTitle = TextStyle(
         fontSize = 15.sp,
         lineHeight = 20.sp,

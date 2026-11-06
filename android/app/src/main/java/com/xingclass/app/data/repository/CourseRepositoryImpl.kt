@@ -31,7 +31,7 @@ class CourseRepositoryImpl(
         if (snapshot == null) {
             logger.event(LogEvents.COURSE_CACHE_MISS)
         } else {
-            logger.event(LogEvents.COURSE_CACHE_HIT)
+            logger.event(LogEvents.COURSE_CACHE_HIT, "week=${snapshot.week} count=${snapshot.courses.size}")
         }
         return snapshot
     }
@@ -46,11 +46,15 @@ class CourseRepositoryImpl(
                     week = data.week,
                     realCurrentWeek = data.realCurrentWeek,
                     maxWeek = data.maxWeek,
+                    lessonTimes = data.lessonTimes,
                 )
                 runCatching { cache.write(snapshot) }
                     .onSuccess { logger.event(LogEvents.COURSE_CACHE_WRITTEN) }
                     .onFailure { logger.failure(LogEvents.COURSE_FETCH_FAILED, it) }
-                logger.event(LogEvents.COURSE_FETCH_SUCCESS)
+                logger.event(
+                    LogEvents.COURSE_FETCH_SUCCESS,
+                    "week=${snapshot.week} count=${snapshot.courses.size}",
+                )
                 AppResult.Success(snapshot)
             }
 

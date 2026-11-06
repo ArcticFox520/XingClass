@@ -160,6 +160,7 @@ private fun SettingsRoute(
             authRepository = container.authRepository,
             courseRepository = container.courseRepository,
             settingsRepository = container.settingsRepository,
+            diagnosticsRepository = container.diagnosticsRepository,
             versionName = container.appVersionName,
         ),
     )
@@ -174,6 +175,9 @@ private fun SettingsRoute(
         onClearCache = viewModel::clearCache,
         onLogout = { viewModel.logout(rootViewModel::onLoggedOut) },
         onDismissMessage = viewModel::dismissMessage,
+        onExportLogs = viewModel::exportLogs,
+        onExportCourses = viewModel::exportCourses,
+        onExportConsumed = viewModel::consumeExport,
     )
 }
 

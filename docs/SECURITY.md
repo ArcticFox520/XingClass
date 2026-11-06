@@ -82,11 +82,15 @@ SESSION_CLEARED
 COURSE_FETCH_STARTED / COURSE_FETCH_SUCCESS / COURSE_FETCH_FAILED
 COURSE_CACHE_HIT / COURSE_CACHE_MISS / COURSE_CACHE_WRITTEN / COURSE_CACHE_CLEARED
 SECURE_STORAGE_FAILED
+APP_STARTED / EXPORT_LOGS / EXPORT_COURSES / EXPORT_FAILED
 ```
+
+事件可附加安全细节，如 `week=10 count=14`（仅周次与数量，不含课程名）。
 
 禁止：账号、密码、Cookie、Token、Authorization、完整 URL 敏感参数、完整响应体。
 异常只记录 `Throwable` 的**类名**（如 `UnknownHostException`），不记录 message（可能包含 URL 或响应片段）。
-Release 构建中 `AndroidLogger` 不输出任何日志（仅 Debug 生效）。
+Debug 构建同时输出 Logcat；所有构建都会把上述安全事件写入本地诊断日志（见第 10 节），
+Release 不输出 Logcat。
 
 ## 6. 系统层保护
 
@@ -131,3 +135,17 @@ Release 构建中 `AndroidLogger` 不输出任何日志（仅 Debug 生效）。
 - 没有 `FLAG_SECURE`，因此系统截图/录屏可捕获课表（课表本身非敏感，但含教师与教室）。
 - 账户提示（非密码）保存在本机，若设备被解锁且应用数据可读，攻击者可见脱敏后的账号。
 - 超星接口的完整响应结构仍未独立验证，解析失败时应视为“获取失败”，不会破坏现有缓存。
+
+## 10. 诊断日志与导出
+
+- **运行日志**：`DiagnosticsLog` 持久化在应用私有目录 `filesDir/logs/diagnostics.log`
+  （256 KB 上限，内存 500 条兜底）。只写入固定事件名、异常**类名**以及安全的
+  `week=` / `count=` 数字；不写账号、密码、Cookie、Token、完整 URL 或响应体。
+- 日志文件不加密，但不含认证信息；`allowBackup=false`，不会进入云备份。
+- **导出**：设置页的“导出运行日志 / 导出课程数据”由用户主动触发。导出的 `.txt` / `.json`
+  写入应用 cache 的 `exports/`，通过 `FileProvider`（`exported=false`，临时读授权）
+  交给系统分享面板。应用不会自动上传任何导出文件。
+- **课程数据导出**包含课程名称、地点、教师、周次、节次时间等个人课表数据；只在用户点击导出时
+  从本地缓存生成。它**不是原始 HTTP 响应**：原始 body 可能包含身份字段，按本规范不保存、不导出。
+- 分享给第三方应用后，接收方如何处理该文件不受本应用控制；请只分享给可信对象。
+- 清除应用数据或卸载应用会同时删除日志、课程缓存与加密凭据。

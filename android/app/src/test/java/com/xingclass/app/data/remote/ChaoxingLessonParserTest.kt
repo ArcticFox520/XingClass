@@ -170,6 +170,7 @@ class ChaoxingLessonParserTest {
         assertEquals(10, schedule.currentWeek)
         assertEquals(10, schedule.realCurrentWeek)
         assertEquals(22, schedule.maxWeek)
+        assertEquals(listOf("08:30-09:15", "09:20-10:05"), schedule.lessonTimes)
         assertEquals(3, lessons.size)
         assertEquals("示例课程A", lessons[0].title)
         assertEquals("示例教师A", lessons[0].teacher)

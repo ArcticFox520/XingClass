@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.xingclass.app.ui.components.neumorphic.NeumorphicBadge
 import com.xingclass.app.ui.components.neumorphic.NeumorphicTab
 import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingClassType
@@ -76,23 +75,5 @@ fun DayTabs(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun EmptyDayHint(
-    title: String,
-    hint: String,
-    modifier: Modifier = Modifier,
-) {
-    val colors = LocalNeumorphicColors.current
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        NeumorphicBadge(text = title, inset = true)
-        Spacer(Modifier.height(6.dp))
-        Text(text = hint, style = XingClassType.caption, color = colors.textSecondary)
     }
 }

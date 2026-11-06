@@ -11,7 +11,6 @@
     <string name="login_button_loading">正在登录…</string>
     <string name="login_show_password">显示</string>
     <string name="login_hide_password">隐藏</string>
-    <string name="login_privacy_hint">登录信息仅保存在本机安全存储中，不会上传到任何第三方服务器。</string>
     <string name="login_session_expired">登录状态已失效，请重新登录</string>
     <string name="login_error_account_required">请输入账号</string>
     <string name="login_error_password_required">请输入密码</string>
@@ -36,8 +35,6 @@
     <string name="schedule_offline_hint">网络不可用，正在显示最近同步的课表</string>
     <string name="schedule_refresh_failed_kept_cache">刷新失败，已保留上次课表</string>
     <string name="schedule_empty_title">暂无课程</string>
-    <string name="schedule_empty_hint">点击右上角刷新，同步你的课表</string>
-    <string name="schedule_empty_week_hint">该周暂无课程，可以切换到其他周次看看</string>
     <string name="schedule_error_title">课表加载失败</string>
     <string name="schedule_loading">正在获取课表…</string>
     <string name="schedule_retry">重试</string>
@@ -56,10 +53,7 @@
     <!-- Day drawer -->
     <string name="day_drawer_close">关闭</string>
     <string name="day_drawer_empty_title">这一天没有课</string>
-    <string name="day_drawer_empty_hint">好好休息一下</string>
     <string name="day_drawer_section_count">共 %1$d 节</string>
-    <string name="course_period_short_range">%1$d-%2$d</string>
-    <string name="course_period_unit">节</string>
     <string name="course_location_unknown">地点未提供</string>
 
     <!-- Settings -->
@@ -69,7 +63,6 @@
     <string name="settings_theme_auto">自动</string>
     <string name="settings_theme_light">白天</string>
     <string name="settings_theme_dark">黑夜</string>
-    <string name="settings_theme_auto_hint">自动模式在 08:00–22:00 使用白天外观，其余时间使用黑夜外观。</string>
     <string name="settings_section_account">账号</string>
     <string name="settings_account_anonymous">未登录</string>
     <string name="settings_logout">退出登录</string>
@@ -81,12 +74,15 @@
     <string name="settings_last_sync">最近同步：%1$s</string>
     <string name="settings_never_synced">尚未同步</string>
     <string name="settings_clear_cache">清除课表缓存</string>
-    <string name="settings_cache_detail">课程数据缓存在本机，离线时仍可查看。</string>
+    <string name="settings_section_diagnostics">诊断</string>
+    <string name="settings_export_logs">导出运行日志</string>
+    <string name="settings_export_courses">导出课程数据</string>
+    <string name="settings_export_share_title">分享导出文件</string>
+    <string name="settings_export_no_data">暂无可导出的课程数据</string>
+    <string name="settings_export_failed">导出失败</string>
     <string name="settings_section_about">关于</string>
     <string name="settings_version">版本 %1$s</string>
     <string name="settings_arch_note">Android 8.0+ · arm64-v8a</string>
-    <string name="settings_privacy_note">账号与本机会话使用 Android Keystore 加密保存；密码不会被持久化。</string>
-    <string name="settings_source_note">课程数据来自超星学习平台，XingClass 不是超星官方客户端。</string>
 
     <!-- Weekdays -->
     <string name="weekday_short_1">一</string>

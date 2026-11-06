@@ -40,6 +40,7 @@ class CourseRepositoryImplTest {
         week = week,
         realCurrentWeek = realCurrentWeek,
         maxWeek = maxWeek,
+        lessonTimes = listOf("08:30-09:15", "09:20-10:05"),
     )
 
     private fun repository(
@@ -71,6 +72,7 @@ class CourseRepositoryImplTest {
         assertEquals(clock.nowMillis(), cache.snapshot?.savedAtMillis)
         assertEquals(10, cache.snapshot?.week)
         assertEquals(22, cache.snapshot?.maxWeek)
+        assertEquals(listOf("08:30-09:15", "09:20-10:05"), cache.snapshot?.lessonTimes)
         assertNull(remote.lastWeek)
     }
 

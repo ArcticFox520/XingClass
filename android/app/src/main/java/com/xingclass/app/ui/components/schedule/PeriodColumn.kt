@@ -1,7 +1,7 @@
 package com.xingclass.app.ui.components.schedule
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +18,7 @@ import com.xingclass.app.ui.components.neumorphic.NeumorphicSurface
 import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingClassType
 import com.xingclass.app.ui.theme.XingRadii
+import com.xingclass.app.domain.model.PeriodTime
 
 /**
  * Left hand period rail: ten independent raised blocks, one per period (see the three-layer
@@ -27,6 +28,7 @@ import com.xingclass.app.ui.theme.XingRadii
 fun PeriodColumn(
     modifier: Modifier = Modifier,
     periodCount: Int = 10,
+    times: List<PeriodTime?> = emptyList(),
 ) {
     val colors = LocalNeumorphicColors.current
     Column(modifier = modifier) {
@@ -46,10 +48,32 @@ fun PeriodColumn(
                     contentPadding = PaddingValues(0.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = (index + 1).toString(),
-                        style = XingClassType.periodNumber,
-                    )
+                    val time = times.getOrNull(index)
+                    BoxWithConstraints(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val visibleTime = time?.takeIf { maxHeight >= 32.dp }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = (index + 1).toString(),
+                                style = XingClassType.periodNumber,
+                                maxLines = 1,
+                            )
+                            if (visibleTime != null) {
+                                Text(
+                                    text = visibleTime.start,
+                                    style = XingClassType.periodTime,
+                                    maxLines = 1,
+                                )
+                                Text(
+                                    text = visibleTime.end,
+                                    style = XingClassType.periodTime,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

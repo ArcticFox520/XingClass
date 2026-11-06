@@ -23,5 +23,8 @@ sealed interface AppError {
     /** Unexpected HTTP status. */
     data object Server : AppError
 
+    /** The requested local data (e.g. courses for export) does not exist yet. */
+    data object NoData : AppError
+
     data object Unknown : AppError
 }

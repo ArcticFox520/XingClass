@@ -11,6 +11,15 @@ import com.xingclass.app.BuildConfig
  */
 interface Logger {
     fun event(name: String)
+
+    /**
+     * Adds a short, non-sensitive detail (for example "week=9 count=14") to the event.
+     * Never pass accounts, cookies, tokens, URLs or response bodies.
+     */
+    fun event(name: String, detail: String) {
+        event("$name $detail")
+    }
+
     fun failure(name: String, error: Throwable? = null)
 }
 
@@ -31,19 +40,26 @@ object LogEvents {
     const val COURSE_CACHE_WRITTEN = "COURSE_CACHE_WRITTEN"
     const val COURSE_CACHE_CLEARED = "COURSE_CACHE_CLEARED"
     const val SECURE_STORAGE_FAILED = "SECURE_STORAGE_FAILED"
+    const val APP_STARTED = "APP_STARTED"
+    const val EXPORT_LOGS = "EXPORT_LOGS"
+    const val EXPORT_COURSES = "EXPORT_COURSES"
+    const val EXPORT_FAILED = "EXPORT_FAILED"
 }
 
-class AndroidLogger : Logger {
+class AndroidLogger(
+    private val diagnostics: DiagnosticsLog? = null,
+) : Logger {
     override fun event(name: String) {
+        diagnostics?.info(name)
         if (BuildConfig.DEBUG) Log.d(TAG, name)
     }
 
     override fun failure(name: String, error: Throwable?) {
-        if (BuildConfig.DEBUG) {
-            // Only the class name is logged. Exception messages of HTTP stacks may embed URLs
-            // or response fragments and must therefore never be written out.
-            Log.w(TAG, "$name: ${error?.javaClass?.simpleName ?: "unknown"}")
-        }
+        // Only the class name is logged. Exception messages of HTTP stacks may embed URLs
+        // or response fragments and must therefore never be written out.
+        val safeMessage = "$name: ${error?.javaClass?.simpleName ?: "unknown"}"
+        diagnostics?.warn(safeMessage)
+        if (BuildConfig.DEBUG) Log.w(TAG, safeMessage)
     }
 
     private companion object {

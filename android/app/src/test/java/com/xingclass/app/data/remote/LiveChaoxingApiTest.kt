@@ -3,6 +3,8 @@ package com.xingclass.app.data.remote
 import com.xingclass.app.core.AppResult
 import com.xingclass.app.core.NoopLogger
 import com.xingclass.app.data.mapper.CourseMapper
+import com.xingclass.app.domain.model.CourseMerger
+import com.xingclass.app.domain.model.PeriodTimes
 import com.xingclass.app.testutil.FakeCookieStore
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
@@ -70,6 +72,17 @@ class LiveChaoxingApiTest {
         assertTrue(
             "mapped course outside the 7x10 grid",
             courses.all { it.day in 0..6 && it.start in 1..10 && it.start + it.span - 1 <= 10 },
+        )
+
+        assertTrue("live payload did not include period times", current.lessonTimes.isNotEmpty())
+        val periodTimes = PeriodTimes.parse(current.lessonTimes)
+        assertTrue("no period time could be parsed", periodTimes.any { it != null })
+        val merged = CourseMerger.merge(courses, periodTimes)
+        assertTrue("merging removed every course", merged.isNotEmpty())
+        assertTrue("merging created more courses", merged.size <= courses.size)
+        assertTrue(
+            "merged course outside the 7x10 grid",
+            merged.all { it.day in 0..6 && it.start in 1..10 && it.start + it.span - 1 <= 10 },
         )
 
         val realCurrentWeek = current.currentWeek!!

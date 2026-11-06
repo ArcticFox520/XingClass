@@ -119,6 +119,8 @@ Chaoxing JSON
   → ChaoxingLessonDto（规范化中间态）
   → CourseMapper（day/start/span 校验、时间文本兜底、颜色、去重、排序）
   → Course（domain）
+  → CourseMerger（相同内容 + 时间连贯的课程合并成一个方块）
+  → PeriodTimes（lessonTimeConfigArray → 每节上下课时间）
   → ScheduleLayoutCalculator（day/start/span → 网格位置）
   → ScheduleGrid（Compose 自绘布局）
 ```
@@ -128,7 +130,7 @@ UI 永远不直接使用超星 JSON。解析器的容错策略与未验证字段
 ## 5. 缓存
 
 - 位置：`filesDir/course-cache.json`（私有目录，非敏感数据）
-- 结构：`{version, savedAtMillis, courses[], week, realCurrentWeek, maxWeek}`（version=2）
+- 结构：`{version, savedAtMillis, courses[], week, realCurrentWeek, maxWeek, lessonTimes[]}`（version=3）
 - 周次元数据用于离线时继续显示“上次查看的周”，并在恢复网络后回到真实本周
 - 写入：临时文件 + rename，避免进程中断产生半个缓存
 - 读取：反序列化失败或课程越界 → 视为 cache miss 并删除坏文件
@@ -174,6 +176,26 @@ UI 永远不直接使用超星 JSON。解析器的容错策略与未验证字段
 
 **未引入**：Hilt（依赖少，手动 DI 更直接）、Room（单表课表无需数据库）、Navigation（4 个目的地用状态机足够）、Retrofit（接口少，OkHttp + 手写解析更可控）、二维码/推送等。
 
+## 8.1 诊断与导出
+
+```text
+AndroidLogger event/failure
+      ↓（只允许事件名、异常类名、周次/数量）
+DiagnosticsLog（filesDir/logs/diagnostics.log，256KB 上限，内存 500 条兜底）
+      ↓ 用户点击“导出运行日志”
+DiagnosticsRepository.exportLogs() → ExportDocument (.txt)
+      ↓ 用户点击“导出课程数据”
+DiagnosticsRepository.exportCourses() → CourseCacheStore.read() → ExportDocument (.json)
+      ↓
+SettingsScreen → FileProvider（cache/exports）→ 系统分享面板
+```
+
+- 日志不包含账号、密码、Cookie、Token、URL 或响应体。
+- 课程导出是解析后的课表数据（周次、节次时间、课程/地点/教师/颜色），
+  不含原始 HTTP body；原始 body 不落盘。
+- 导出文件写入应用 cache，通过 FileProvider 临时授权给分享目标；用户主动触发。
+- 日志与课程缓存都在 `allowBackup=false` 的应用私有目录中。
+
 ## 9. 测试策略
 
 - 纯逻辑（Crypto、Parser、Mapper、Layout、AutoTheme、Mask、Week/日期、地点拆分）→ 快速 JVM 单元测试
@@ -182,5 +204,5 @@ UI 永远不直接使用超星 JSON。解析器的容错策略与未验证字段
 - HTTP 行为 → MockWebServer 验证请求方法/表单/加密/Cookie 回放/错误映射
 - Repository → 假远端 + 假缓存，覆盖成功、失败、缓存回退、会话失效
 - 缓存 → JUnit TemporaryFolder 验证原子写、坏文件清理
-- 当前共 113 个 JVM 测试（1 个 opt-in 实网测试默认跳过）；实网测试已覆盖周次切换
+- 当前共 132 个 JVM 测试（1 个 opt-in 实网测试默认跳过）；实网测试已覆盖周次切换、节次时间与合并
 - 未做 instrumented/UI 测试（构建环境无 KVM，无法启动模拟器），在 README 与最终报告中注明

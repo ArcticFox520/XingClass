@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xingclass.app.R
 import com.xingclass.app.domain.model.Course
+import com.xingclass.app.domain.model.PeriodTimes
 import com.xingclass.app.domain.model.ThemeMode
 import com.xingclass.app.ui.components.neumorphic.NeumorphicElevation
 import com.xingclass.app.ui.components.neumorphic.NeumorphicStyle
@@ -76,6 +77,7 @@ fun ScheduleScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalNeumorphicColors.current
+    val periodTimes = remember(state.lessonTimes) { PeriodTimes.parse(state.lessonTimes) }
     val weekDates = remember(state.todayDate, state.week, state.realCurrentWeek) {
         DateLabels.weekDatesFor(
             selectedWeek = state.week,
@@ -166,6 +168,7 @@ fun ScheduleScreen(
                     modifier = Modifier
                         .width(ScheduleMetrics.PeriodColumnWidth)
                         .fillMaxHeight(),
+                    times = periodTimes,
                 )
                 Spacer(Modifier.width(ScheduleMetrics.Gap))
                 ScheduleGrid(
@@ -212,6 +215,7 @@ fun ScheduleScreen(
             dayIndex = state.selectedDay ?: 0,
             date = state.selectedDay?.let { weekDates.getOrNull(it) } ?: state.todayDate,
             courses = drawerCourses,
+            periodTimes = periodTimes,
             onDismiss = onCloseDay,
         )
     }

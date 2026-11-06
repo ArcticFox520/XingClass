@@ -32,6 +32,8 @@ data class ChaoxingScheduleDto(
     val currentWeek: Int? = null,
     val realCurrentWeek: Int? = null,
     val maxWeek: Int? = null,
+    /** Raw `curriculum.lessonTimeConfigArray` (e.g. "08:30-09:15"); parsed by PeriodTimes. */
+    val lessonTimes: List<String> = emptyList(),
 )
 
 sealed interface LessonPayload {

@@ -37,5 +37,6 @@ fun AppError.toUiText(): UiText = when (this) {
     AppError.SessionExpired -> UiText.res(R.string.error_session_expired)
     AppError.CourseFetch -> UiText.res(R.string.error_course_fetch)
     AppError.Server -> UiText.res(R.string.error_server)
+    AppError.NoData -> UiText.res(R.string.settings_export_no_data)
     AppError.Unknown -> UiText.res(R.string.error_unknown)
 }

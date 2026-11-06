@@ -4,6 +4,7 @@ import android.content.Context
 import com.xingclass.app.BuildConfig
 import com.xingclass.app.core.AndroidLogger
 import com.xingclass.app.core.AppClock
+import com.xingclass.app.core.DiagnosticsLog
 import com.xingclass.app.core.Logger
 import com.xingclass.app.core.SystemAppClock
 import com.xingclass.app.data.local.FileCourseCacheStore
@@ -16,9 +17,11 @@ import com.xingclass.app.data.remote.CourseRemoteDataSource
 import com.xingclass.app.data.remote.EncryptedCookieStore
 import com.xingclass.app.data.repository.AuthRepositoryImpl
 import com.xingclass.app.data.repository.CourseRepositoryImpl
+import com.xingclass.app.data.repository.DiagnosticsRepositoryImpl
 import com.xingclass.app.data.repository.SharedPreferencesSettingsRepository
 import com.xingclass.app.domain.repository.AuthRepository
 import com.xingclass.app.domain.repository.CourseRepository
+import com.xingclass.app.domain.repository.DiagnosticsRepository
 import com.xingclass.app.domain.repository.SettingsRepository
 import com.xingclass.app.security.CredentialStore
 import com.xingclass.app.security.KeystoreSecureStorage
@@ -39,6 +42,7 @@ interface AppContainer {
     val authRepository: AuthRepository
     val courseRepository: CourseRepository
     val settingsRepository: SettingsRepository
+    val diagnosticsRepository: DiagnosticsRepository
     val appVersionName: String
 }
 
@@ -46,8 +50,14 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val appContext = context.applicationContext
 
-    override val logger: Logger = AndroidLogger()
     override val clock: AppClock = SystemAppClock()
+
+    private val diagnosticsLog = DiagnosticsLog(
+        file = File(appContext.filesDir, "logs/diagnostics.log"),
+        now = clock::nowMillis,
+    )
+
+    override val logger: Logger = AndroidLogger(diagnosticsLog)
 
     private val secureStorage: SecureStorage = KeystoreSecureStorage(appContext, logger)
     private val credentialStore = CredentialStore(secureStorage)
@@ -92,8 +102,16 @@ class DefaultAppContainer(context: Context) : AppContainer {
         logger = logger,
     )
 
+    override val appVersionName: String = BuildConfig.VERSION_NAME.removeSuffix("-debug")
+
+    override val diagnosticsRepository: DiagnosticsRepository = DiagnosticsRepositoryImpl(
+        cache = cacheStore,
+        diagnostics = diagnosticsLog,
+        logger = logger,
+        clock = clock,
+        versionName = appVersionName,
+    )
+
     override val settingsRepository: SettingsRepository =
         SharedPreferencesSettingsRepository(appContext)
-
-    override val appVersionName: String = BuildConfig.VERSION_NAME.removeSuffix("-debug")
 }

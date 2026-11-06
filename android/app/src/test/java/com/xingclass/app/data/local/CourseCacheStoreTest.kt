@@ -47,6 +47,7 @@ class CourseCacheStoreTest {
             week = 9,
             realCurrentWeek = 10,
             maxWeek = 22,
+            lessonTimes = listOf("08:30-09:15", "09:20-10:05"),
         )
 
         store.write(snapshot)
@@ -57,6 +58,7 @@ class CourseCacheStoreTest {
         assertEquals(9, restored?.week)
         assertEquals(10, restored?.realCurrentWeek)
         assertEquals(22, restored?.maxWeek)
+        assertEquals(listOf("08:30-09:15", "09:20-10:05"), restored?.lessonTimes)
         assertEquals(1, restored?.courses?.size)
         assertEquals("高等数学", restored?.courses?.single()?.title)
         assertEquals("A101", restored?.courses?.single()?.location)

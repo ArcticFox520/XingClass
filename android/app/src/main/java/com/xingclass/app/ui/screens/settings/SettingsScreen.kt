@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,9 +53,11 @@ import com.xingclass.app.ui.theme.XingClassType
 import com.xingclass.app.ui.theme.XingRadii
 import com.xingclass.app.ui.theme.XingSpacing
 import com.xingclass.app.ui.util.asString
+import com.xingclass.app.ui.util.shareExportDocument
 import com.xingclass.app.ui.util.syncTimeLabel
 import com.xingclass.app.ui.util.themeModeLabel
 import kotlinx.coroutines.delay
+import android.widget.Toast
 import java.time.LocalDate
 
 @Composable
@@ -66,6 +69,9 @@ fun SettingsScreen(
     onClearCache: () -> Unit,
     onLogout: () -> Unit,
     onDismissMessage: () -> Unit,
+    onExportLogs: () -> Unit,
+    onExportCourses: () -> Unit,
+    onExportConsumed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalNeumorphicColors.current
@@ -83,6 +89,16 @@ fun SettingsScreen(
         } else {
             delay(320)
             visibleMessage = null
+        }
+    }
+
+    val context = LocalContext.current
+    LaunchedEffect(state.exportDocument) {
+        val document = state.exportDocument ?: return@LaunchedEffect
+        val shared = runCatching { shareExportDocument(context, document) }.isSuccess
+        onExportConsumed()
+        if (!shared) {
+            Toast.makeText(context, R.string.settings_export_failed, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -143,12 +159,6 @@ fun SettingsScreen(
                             }
                         }
                     }
-                    Spacer(Modifier.height(XingSpacing.sm))
-                    Text(
-                        text = stringResource(R.string.settings_theme_auto_hint),
-                        style = XingClassType.caption,
-                        color = colors.textSecondary,
-                    )
                 }
 
                 SettingsSection(title = stringResource(R.string.settings_section_account)) {
@@ -165,12 +175,6 @@ fun SettingsScreen(
                                     ?: stringResource(R.string.settings_account_anonymous),
                                 style = XingClassType.bodyStrong,
                                 color = colors.textPrimary,
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.settings_privacy_note),
-                                style = XingClassType.caption,
-                                color = colors.textSecondary,
                             )
                         }
                     }
@@ -207,12 +211,6 @@ fun SettingsScreen(
                                 style = XingClassType.bodyStrong,
                                 color = colors.textPrimary,
                             )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.settings_cache_detail),
-                                style = XingClassType.caption,
-                                color = colors.textSecondary,
-                            )
                         }
                     }
                     Spacer(Modifier.height(XingSpacing.sm))
@@ -223,6 +221,30 @@ fun SettingsScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.settings_clear_cache),
+                            style = XingClassType.bodyStrong,
+                        )
+                    }
+                }
+
+                SettingsSection(title = stringResource(R.string.settings_section_diagnostics)) {
+                    NeumorphicButton(
+                        onClick = onExportLogs,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 13.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_export_logs),
+                            style = XingClassType.bodyStrong,
+                        )
+                    }
+                    Spacer(Modifier.height(XingSpacing.sm))
+                    NeumorphicButton(
+                        onClick = onExportCourses,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(vertical = 13.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_export_courses),
                             style = XingClassType.bodyStrong,
                         )
                     }
@@ -247,18 +269,6 @@ fun SettingsScreen(
                                 text = stringResource(R.string.settings_arch_note),
                                 style = XingClassType.caption,
                                 color = colors.textSecondary,
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Text(
-                                text = stringResource(R.string.settings_privacy_note),
-                                style = XingClassType.caption,
-                                color = colors.textSecondary,
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = stringResource(R.string.settings_source_note),
-                                style = XingClassType.caption,
-                                color = colors.textTertiary,
                             )
                         }
                     }

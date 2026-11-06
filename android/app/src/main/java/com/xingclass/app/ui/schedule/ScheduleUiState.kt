@@ -35,6 +35,7 @@ data class ScheduleUiState(
     /** The server's real current week; independent from [week] when browsing another week. */
     val realCurrentWeek: Int? = null,
     val maxWeek: Int? = null,
+    val lessonTimes: List<String> = emptyList(),
 ) {
     val status: ScheduleStatus
         get() = when {

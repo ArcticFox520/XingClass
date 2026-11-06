@@ -12,4 +12,6 @@ data class CourseWeek(
     val week: Int,
     val realCurrentWeek: Int,
     val maxWeek: Int,
+    /** Raw period clock strings from the same response, used by the grid/drawer. */
+    val lessonTimes: List<String> = emptyList(),
 )

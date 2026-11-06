@@ -23,7 +23,12 @@ XingClass 是一个面向学生的**超星课程表 Android 客户端**。它不
 - 课程卡按实际可用高度自适应：标题优先，空间足够时显示**楼栋与教室两行**，
   不再因为跨节数或固定阈值隐藏地点
 - 统一新拟物光影：加深外凸/内凹双阴影，按压 300ms 由外凸变内凹（无位移）
-- 单日课程抽屉（点击星期 Tab 或任意课程打开；楼栋、教室、教师分行）
+- **课程合并**：同一天、同标题/地点/教师且节次连续（间隔 ≤30 分钟）的课程合并为一个方块
+- 单日课程抽屉：内部大凹槽 + 外凸课程卡；楼栋 · 教室 · 教师单行展示，
+  左侧用上课/下课时间替代“1-2 节”
+- 左侧节数栏：节数下方显示该节的上课/下课时间
+- **诊断日志与导出**：持久化运行事件日志；设置页可导出运行日志与课程数据（JSON），
+  通过系统分享面板保存/发送；日志不含密码、Cookie、Token 或响应体
 - 自动 / 白天 / 黑夜三态主题（自动模式 08:00–22:00 为白天，每分钟检查一次）
 - 设置页：主题、账号（脱敏）、最近同步时间、清除缓存、退出登录
 - 空 / 加载 / 缓存 / 刷新中 / 成功 / 失败 / 离线全部页面状态
@@ -109,6 +114,7 @@ cd android
 - `AuthRepositoryImplTest`：登录、账号保存、Session 状态机
 - `AutoThemeTest` / `AccountMaskTest` / `CourseCacheStoreTest`
 - `CourseCardLayoutTest` / `LocationTextTest` / `DateLabelsTest` / `ScheduleUiStateTest`
+- `PeriodTimesTest` / `CourseMergerTest` / `DiagnosticsLogTest` / `DiagnosticsRepositoryImplTest`
 - `LiveChaoxingApiTest`：**opt-in 实网集成测试**，默认跳过；使用真实 `ChaoxingApiClient`
   完成登录 → Cookie 会话 → 拉取课表 → 映射网格，断言解析数 == 映射数。
 
@@ -146,7 +152,9 @@ workflow 会在 Summary 中给出警告。详见 [docs/SECURITY.md](docs/SECURIT
 
 - 只保存本地登录状态：账号提示与 Cookie 经 Android Keystore（AES-256-GCM）加密后落盘。
 - 不保存明文密码；不打印密码、Cookie、Token 或完整敏感 URL。
-- 关闭系统备份（`allowBackup=false`），避免凭据被云备份带出。
+- 运行日志只记录事件名、异常类型与周次/数量；课程导出只在用户主动操作时生成，
+  通过 FileProvider 分享，不包含账号、Cookie 或原始响应体。
+- 关闭系统备份（`allowBackup=false`），避免凭据与日志被云备份带出。
 - 仅 HTTPS（`usesCleartextTraffic=false`），不信任自定义 CA，不做 SSL Pinning 绕过。
 - 退出登录会清除 Cookie、账号提示和课表缓存。
 - 仓库内不存在任何真实账号、密码、Cookie、Keystore；测试凭据不得提交。
@@ -160,7 +168,7 @@ workflow 会在 Summary 中给出警告。详见 [docs/SECURITY.md](docs/SECURIT
 | 命令 | 结果 |
 |---|---|
 | `./gradlew lint` | **PASS**（0 issues） |
-| `./gradlew test` | **PASS**（113 tests，0 failures；1 个 opt-in 实网测试默认跳过） |
+| `./gradlew test` | **PASS**（132 tests，0 failures；1 个 opt-in 实网测试默认跳过） |
 | `./gradlew assembleDebug` | **PASS** |
 | `./gradlew assembleRelease` | **PASS** |
 
@@ -185,6 +193,8 @@ APK 内唯一的原生库是 `lib/arm64-v8a/libandroidx.graphics.path.so`（Comp
 | `getMyLessons` 真实响应 | 200 JSON，结构为 `data.lessonArray`，共 14 条 |
 | 真实课程 → 网格映射 | 14/14 全部映射，无丢失（`LiveChaoxingApiTest`） |
 | **周次切换** | `week=9` → 16 条（10-26..11-01）、`week=11` → 14 条（11-09..11-14）；课程 `weeks` 与目标周一致，`currentWeek` 仍为真实本周 |
+| 节次时间 | `lessonTimeConfigArray` 解析成功，抽屉/左栏使用真实上课时间与下课时间 |
+| 课程合并 | 实网数据先验证原始映射 14/14，再验证合并后仍全部落在 7×10 网格内 |
 | 真实结构回归样本 | 已脱敏后加入单元测试，锁定 `lessonArray`/`dayOfWeek`/`beginNumber`/`length`/`weeks` |
 
 > 环境没有 `/dev/kvm`，无法运行 Android 模拟器，因此没有执行 instrumented / Compose UI 测试，
@@ -195,13 +205,14 @@ APK 内唯一的原生库是 `lib/arm64-v8a/libandroidx.graphics.path.so`（Comp
 
 - 真实接口的成功路径已验证；错误密码、验证码、双因子、会话过期等失败分支未主动触发，
   仍标记 `UNVERIFIED`，代码采用防御性处理（详见 [docs/API.md](docs/API.md)）。
-- 接口已返回节次时间（`lessonTimeConfigArray`），但按移动端 UI 规范只在主课表显示节数，
-  未展示具体时钟时间。
 - 未做国际化：当前仅简体中文。
 - 尚未在真机上做视觉验收；一屏布局、无滚动、文字截断由代码约束与单元测试保证布局数学，
   UI 观感仍建议在真机/模拟器上确认。
 - Release APK 在未配置签名 Secrets 时为 debug 签名，只能内测安装，不能正式分发。
 - 未在真机上运行 Android 客户端完成端到端操作；网络层已用同一套 Kotlin 代码做过实网验证。
+- “导出课程数据”导出的是解析后的课表数据（周次、节次时间、课程/地点/教师），
+  不是原始 HTTP 响应；原始 body 可能含身份字段，按安全规范不做保留。日志同样只记录事件名/
+  异常类型/周次与数量，不含账号、密码、Cookie 或响应体。
 - MVP 不包含二维码登录、多账号、提醒等需求范围外功能。
 
 ## 12. 目录结构
