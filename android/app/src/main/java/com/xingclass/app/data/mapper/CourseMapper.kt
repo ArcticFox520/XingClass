@@ -42,8 +42,8 @@ class CourseMapper {
             else -> 1
         }.coerceIn(1, MAX_PERIODS - start + 1)
 
-        val id = dto.id?.trim()?.takeIf { it.isNotEmpty() }
-            ?: stableId(title, day, start, span)
+        val sourceId = dto.id?.trim()?.takeIf { it.isNotEmpty() }
+        val id = occurrenceId(sourceId, title, day, start, span)
 
         return Course(
             id = id,
@@ -57,20 +57,36 @@ class CourseMapper {
         )
     }
 
-    fun colorFor(title: String): CourseColor {
+    fun colorFor(title: String): CourseColor =
+        CourseColor.entries[Math.floorMod(titleHash(title), CourseColor.entries.size)]
+
+    /**
+     * A source id can identify a course rather than a single occurrence (Chaoxing's courseId
+     * repeats for every lesson of that course in a week). The grid slot and a title hash are
+     * therefore part of the internal id: different occurrences stay distinct, while an exact
+     * duplicate entry still collapses during de-duplication.
+     */
+    private fun occurrenceId(
+        sourceId: String?,
+        title: String,
+        day: Int,
+        start: Int,
+        span: Int,
+    ): String {
+        val hash = titleHash(title)
+        return if (sourceId != null) {
+            "$sourceId@$day-$start-$span-$hash"
+        } else {
+            "cx-$day-$start-$span-$hash"
+        }
+    }
+
+    private fun titleHash(title: String): Int {
         var hash = 0
         for (character in title.trim()) {
             hash = 31 * hash + character.code
         }
-        return CourseColor.entries[Math.floorMod(hash, CourseColor.entries.size)]
-    }
-
-    private fun stableId(title: String, day: Int, start: Int, span: Int): String {
-        var hash = 0
-        for (character in title) {
-            hash = 31 * hash + character.code
-        }
-        return "cx-$day-$start-$span-$hash"
+        return hash
     }
 
     companion object {

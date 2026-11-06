@@ -24,7 +24,9 @@ object ChaoxingLessonParser {
     }
 
     private val preferredContainerKeys = listOf(
-        "lessons", "lessonList", "data", "list", "rows", "result", "records", "courseList",
+        // Verified live on 2026-11-06: the real payload nests lessons in data.lessonArray.
+        "lessonArray", "lessons", "lessonList", "data", "list", "rows", "result", "records",
+        "courseList",
     )
 
     private val titleKeys = arrayOf(
@@ -37,7 +39,9 @@ object ChaoxingLessonParser {
         "location", "place", "classroom", "room", "address", "addr", "classroomName",
     )
     private val idKeys = arrayOf(
-        "id", "courseId", "lessonId", "curriculumId", "lesson_id", "curriculum_id",
+        // lessonId identifies one occurrence; courseId identifies the course and repeats
+        // across the week, so it must come last.
+        "lessonId", "lesson_id", "curriculumId", "curriculum_id", "id", "courseId",
     )
     private val timeTextKeys = arrayOf(
         "time", "timeText", "sectionText", "courseTime", "lessonTime", "classTime", "timeStr",
@@ -49,11 +53,12 @@ object ChaoxingLessonParser {
         "day", "dayIndex", "dayOfWeekIndex", "weekIndex",
     )
     private val startKeys = arrayOf(
-        "start", "startSection", "sectionStart", "nodeStart", "beginSection", "startNode",
-        "startSectionNum", "sectionStartNum",
+        // "beginNumber" is the field used by the verified live lessonArray payload.
+        "beginNumber", "start", "startSection", "sectionStart", "nodeStart", "beginSection",
+        "startNode", "startSectionNum", "sectionStartNum", "startNumber",
     )
     private val endKeys = arrayOf(
-        "end", "endSection", "sectionEnd", "nodeEnd", "endNode", "endSectionNum",
+        "endNumber", "end", "endSection", "sectionEnd", "nodeEnd", "endNode", "endSectionNum",
     )
     private val spanKeys = arrayOf(
         "span", "sectionSpan", "nodeNum", "sectionCount", "step", "length", "duration", "periods",
@@ -97,10 +102,12 @@ object ChaoxingLessonParser {
                     val found = resolveContainer(child, depth)
                     if (found != null) return found
                 }
-                // Schema drift fallback: accept the first array that actually looks like lessons.
+                // Schema drift fallback: accept the first NON-EMPTY array that looks like lessons.
+                // Empty arrays from unrelated fields (for example data.schools == []) must not
+                // be mistaken for an empty timetable.
                 for (child in element.values) {
                     val candidate = resolveContainer(child, depth) ?: continue
-                    if (candidate.isEmpty() || looksLikeLessonArray(candidate)) return candidate
+                    if (candidate.isNotEmpty() && looksLikeLessonArray(candidate)) return candidate
                 }
                 null
             }

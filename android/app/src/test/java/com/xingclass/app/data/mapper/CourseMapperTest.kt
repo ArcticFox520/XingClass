@@ -27,7 +27,7 @@ class CourseMapperTest {
         )
 
         val course = courses.single()
-        assertEquals("1", course.id)
+        assertTrue(course.id.startsWith("1@0-1-2-"))
         assertEquals("高等数学", course.title)
         assertEquals(0, course.day)
         assertEquals(1, course.start)
@@ -110,10 +110,33 @@ class CourseMapperTest {
     }
 
     @Test
-    fun `deduplicates lessons with the same id`() {
+    fun `deduplicates exact duplicate entries`() {
         val duplicate = ChaoxingLessonDto(id = "same", title = "重复", dayIndex = 1, start = 1)
-        val courses = mapper.toCourses(listOf(duplicate, duplicate.copy(title = "重复2")))
+        val courses = mapper.toCourses(listOf(duplicate, duplicate))
         assertEquals(1, courses.size)
+    }
+
+    @Test
+    fun `keeps different occurrences of one course distinct`() {
+        // Real Chaoxing payloads repeat a courseId for every lesson of that course in the week;
+        // the lessonId is unique per occurrence. Both must survive mapping.
+        val first = ChaoxingLessonDto(id = "lesson-1", title = "高等数学", dayIndex = 0, start = 1, span = 2)
+        val second = ChaoxingLessonDto(id = "lesson-2", title = "高等数学", dayIndex = 2, start = 3, span = 2)
+        val courses = mapper.toCourses(listOf(first, second))
+
+        assertEquals(2, courses.size)
+        assertEquals(2, courses.map { it.id }.toSet().size)
+        assertEquals(2, courses.map { it.day }.toSet().size)
+    }
+
+    @Test
+    fun `course level ids at different slots stay distinct`() {
+        val first = ChaoxingLessonDto(id = "course-1", title = "大学英语", dayIndex = 0, start = 1, span = 2)
+        val second = first.copy(dayIndex = 3, start = 5, span = 2)
+        val courses = mapper.toCourses(listOf(first, second))
+
+        assertEquals(2, courses.size)
+        assertEquals(2, courses.map { it.id }.toSet().size)
     }
 
     @Test

@@ -113,6 +113,8 @@ Release 构建中 `AndroidLogger` 不输出任何日志（仅 Debug 生效）。
 - 本地签名使用 `android/keystore.properties`（git 忽略），不得提交。
 - 未配置签名 Secrets 时 Release APK 使用 debug key 签名，workflow 会显示警告；
   该产物只能用于内测，不能上传应用商店。
+- 真实接口联调只在临时进程环境中使用测试账号；凭据不写文件、不提交、不进日志。
+  联调后原始响应已从临时目录删除，提交到仓库的只有脱敏后的结构样本。
 - Release workflow 只能手动触发；普通 push/PR 永远不会创建 Release。
 
 ## 8. 凭据泄露后的处置

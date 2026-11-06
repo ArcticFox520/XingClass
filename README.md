@@ -103,6 +103,17 @@ cd android
 - `CourseRepositoryImplTest`：远程成功/失败、缓存命中/保留、会话失效
 - `AuthRepositoryImplTest`：登录、账号保存、Session 状态机
 - `AutoThemeTest` / `AccountMaskTest` / `CourseCacheStoreTest`
+- `LiveChaoxingApiTest`：**opt-in 实网集成测试**，默认跳过；使用真实 `ChaoxingApiClient`
+  完成登录 → Cookie 会话 → 拉取课表 → 映射网格，断言解析数 == 映射数。
+
+实网测试（凭据只放在环境变量，不写入仓库）：
+
+```bash
+export XINGCLASS_TEST_ACCOUNT=你的账号
+export XINGCLASS_TEST_PASSWORD=你的密码
+cd android
+./gradlew testDebugUnitTest --tests '*LiveChaoxingApiTest' --no-daemon
+```
 
 ## 8. GitHub Actions
 
@@ -143,7 +154,7 @@ workflow 会在 Summary 中给出警告。详见 [docs/SECURITY.md](docs/SECURIT
 | 命令 | 结果 |
 |---|---|
 | `./gradlew lint` | **PASS**（0 issues） |
-| `./gradlew test` | **PASS**（81 tests，0 failures） |
+| `./gradlew test` | **PASS**（88 tests，0 failures；1 个 opt-in 实网测试默认跳过） |
 | `./gradlew assembleDebug` | **PASS** |
 | `./gradlew assembleRelease` | **PASS** |
 
@@ -156,19 +167,35 @@ APK 内唯一的原生库是 `lib/arm64-v8a/libandroidx.graphics.path.so`（Comp
 没有 `x86` / `x86_64` / `armeabi-v7a`。Release APK 使用 debug key 签名，
 上传公开 Release 前必须配置签名 Secrets（见第 8 节）。
 
+### 实网接口验证（2026-11-06）
+
+使用项目提供的测试账号完成了一次真实联调（凭据仅存在于临时环境变量/进程，未写入仓库或日志）：
+
+| 验证项 | 结果 |
+|---|---|
+| AES 登录真实接口 | 成功，返回 `{"status": true, "url": "..."}` |
+| Cookie 会话复用 | 成功，12 个 Cookie，后续课程请求复用同一会话 |
+| `getauthstatus/v2` | **登录有效时仍返回“参数为空”**，确认不能用于正向判定会话 |
+| `getMyLessons` 真实响应 | 200 JSON，结构为 `data.lessonArray`，共 14 条 |
+| 真实课程 → 网格映射 | 14/14 全部映射，无丢失（`LiveChaoxingApiTest`） |
+| 真实结构回归样本 | 已脱敏后加入单元测试，锁定 `lessonArray`/`dayOfWeek`/`beginNumber`/`length` |
+
 > 环境没有 `/dev/kvm`，无法运行 Android 模拟器，因此没有执行 instrumented / Compose UI 测试，
-> 也没有真机视觉验收。本次开发未使用真实超星账号做线上联调；接口中未验证的部分均标注 `UNVERIFIED`。
+> 也没有真机视觉验收。实网验证覆盖了成功路径；错误密码、验证码、会话过期等服务端失败分支
+> 未主动触发，代码按防御性逻辑处理并标记 `UNVERIFIED`。
 
 ## 11. 已知限制
 
-- 超星 `getMyLessons` 的**完整响应结构未被独立验证**。解析器采用多别名、容错的策略，
-  未识别的字段不会臆造数据；详见 [docs/API.md](docs/API.md) 的 `UNVERIFIED` 标记。
-- 未内置"第 N 节课的具体时间"（资料未提供，避免编造）；主课表只显示节数。
+- 真实接口的成功路径已验证；错误密码、验证码、双因子、会话过期等失败分支未主动触发，
+  仍标记 `UNVERIFIED`，代码采用防御性处理（详见 [docs/API.md](docs/API.md)）。
+- `getMyLessons` 返回的是 `curTime` 所在周的课程实例，MVP 不提供周次切换。
+- 接口已返回节次时间（`lessonTimeConfigArray`），但按移动端 UI 规范只在主课表显示节数，
+  未展示具体时钟时间。
 - 未做国际化：当前仅简体中文。
 - 尚未在真机上做视觉验收；一屏布局、无滚动、文字截断由代码约束与单元测试保证布局数学，
   UI 观感仍建议在真机/模拟器上确认。
 - Release APK 在未配置签名 Secrets 时为 debug 签名，只能内测安装，不能正式分发。
-- 没有使用真实超星账号做端到端联调；登录/课程接口在真实环境中的最终表现需以真机验证为准。
+- 未在真机上运行 Android 客户端完成端到端操作；网络层已用同一套 Kotlin 代码做过实网验证。
 - MVP 不包含二维码登录、多账号、提醒等需求范围外功能。
 
 ## 12. 目录结构

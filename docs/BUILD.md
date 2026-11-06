@@ -42,6 +42,10 @@ cd android
 ./gradlew test
 ./gradlew assembleDebug
 ./gradlew assembleRelease
+
+# 可选：真实接口联调（凭据只放在环境变量，测试默认跳过）
+XINGCLASS_TEST_ACCOUNT=... XINGCLASS_TEST_PASSWORD=... \
+  ./gradlew testDebugUnitTest --tests '*LiveChaoxingApiTest' --no-daemon
 ```
 
 首次构建会下载 AGP、Compose、OkHttp 等依赖，需要网络。Gradle 配置已设置 `-Xmx2560m`，
@@ -130,7 +134,8 @@ RELEASE_KEY_PASSWORD
 | 命令 | 结果 | 说明 |
 |---|---|---|
 | `./gradlew lint` | PASS | 0 issues（`app/build/reports/lint-results-debug.html`） |
-| `./gradlew test` | PASS | 81 tests / 0 failures |
+| `./gradlew test` | PASS | 88 tests / 0 failures / 1 opt-in live test skipped |
+| 实网 `LiveChaoxingApiTest` | PASS（手动） | 登录 + 课程 14/14 映射，凭据仅环境变量 |
 | `./gradlew assembleDebug` | PASS | 11 MB，arm64-v8a |
 | `./gradlew assembleRelease` | PASS | 1.3 MB，R8 + resource shrinking，arm64-v8a |
 

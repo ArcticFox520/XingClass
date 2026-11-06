@@ -93,6 +93,8 @@
 - 根：`Column`，标题栏与星期栏高度固定，网格行 `weight(1f)` 占满剩余高度
 - 网格：**自定义 `Layout`**，测量高度均分 10 行、宽度均分 7 列
 - 课程位置完全由 `day/start/span` 计算（`ScheduleLayoutCalculator`，纯 Kotlin，已单测）
+- 真实接口的 `curriculum.lessonTimeConfigArray` 已提供节次时钟时间，但按本指南“移动端只留节数”
+  的原则，主课表与抽屉只显示 1–10 节，不显示具体时间
 - 不使用 `LazyColumn` / `LazyRow` / `verticalScroll` 作为主课表容器
 - 重叠课程自动分列（贪心区间着色），不会互相覆盖
 - 卡片高度由跨节数决定，文字行数根据实际测量高度动态限制，长课程名不会撑破网格

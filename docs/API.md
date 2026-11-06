@@ -1,10 +1,13 @@
 # 超星接口与实现记录
 
-> 本文只描述 XingClass 实际使用的接口。所有结论来自项目提供的《工作指导后端》抓包资料，
-> 未额外使用任何真实账号进行线上验证。**未经验证的行为一律标记 `UNVERIFIED`，不把推测写成事实。**
-
-所有请求都经过同一个 `OkHttpClient` / `ChaoxingCookieJar`，以保持 Session-Cookie 上下文。
-请求头统一携带浏览器 UA（超星 Web 接口未提供官方原生 API），不启用任何代理或自建服务端。
+> 本文描述 XingClass 实际使用的接口。
+>
+> **验证状态（2026-11-06）**：使用项目提供的测试账号完成了一次真实联调——
+> AES 加密登录成功、Cookie 会话复用成功、`getMyLessons` 真实响应成功解析为 7×10 网格。
+> 联调只在临时进程环境变量中持有凭据，未写入仓库、未打印密码/Cookie、未落盘保存原始响应；
+> 提交到测试中的真实结构样本已做脱敏（字段名与类型保留，值替换为占位符）。
+>
+> 本文仍区分 **VERIFIED**（来自真实响应）与 **UNVERIFIED**（未捕获到、按防御性逻辑处理）。
 
 ---
 
@@ -21,10 +24,11 @@
 
 说明：JCE 中写作 `AES/CBC/PKCS5Padding`；对 16 字节分组而言 PKCS#5 填充与 PKCS#7 等价，
 向量测试已确认。表单提交时由 OkHttp `FormBody` 做 URL 编码（`+` → `%2B`，`=` → `%3D`）。
+真实登录请求的 JSON 响应验证了该加密方式可用。
 
 ---
 
-## 2. 登录
+## 2. 登录（VERIFIED）
 
 ### `POST https://passport2.chaoxing.com/fanyalogin`
 
@@ -32,19 +36,20 @@
 |---|---|
 | Method | POST |
 | URL | `https://passport2.chaoxing.com/fanyalogin` |
-| Content-Type | `application/x-www-form-urlencoded; charset=UTF-8` |
-| 认证要求 | 无（登录入口） |
+| 请求 Content-Type | `application/x-www-form-urlencoded; charset=UTF-8` |
+| 响应 Content-Type | 真实返回为 `text/html;charset=utf-8`，但 body 是 JSON（不要按 Content-Type 拒绝） |
+| 认证要求 | 无 |
 | Session 要求 | 无；响应 `Set-Cookie` 必须保存 |
-| 状态 | 请求字段与成功响应来自抓包（VERIFIED）；服务端其余分支 `UNVERIFIED` |
+| 状态 | 成功路径 **VERIFIED**；失败分支（错误密码、验证码、双因子）`UNVERIFIED` |
 
-请求参数：
+请求参数（真实联调使用）：
 
 | 参数 | 值 | 说明 |
 |---|---|---|
 | `fid` | `-1` | 学校 ID；`-1` 表示按账号自动识别 |
 | `uname` | AES(Base64) 后的账号 | 必须先加密 |
 | `password` | AES(Base64) 后的密码 | 必须先加密 |
-| `refer` | `https://www.chaoxing.com/` | 跳转地址；抓包中另有 `http%3A%2F%2Fi.mooc.chaoxing.com` 的形态，`UNVERIFIED` 哪一个更通用 |
+| `refer` | `https://www.chaoxing.com/` | 本次实测成功；资料中另有 `http%3A%2F%2Fi.mooc.chaoxing.com` 形态，未对比 |
 | `t` | `true` | 登录标识 |
 | `forbidotherlogin` | `0` | 不禁止其他设备登录 |
 | `validate` | 空串 | 验证码标识 |
@@ -52,17 +57,19 @@
 | `independentId` | `0` | 独立 ID 标识 |
 | `independentNameId` | `0` | 独立名称 ID 标识 |
 
-成功响应（资料记录）：
+真实成功响应（HTTP 200）：
 
 ```json
-{ "url": "https://www.chaoxing.com/", "status": true }
+{ "status": true, "url": "https://www.chaoxing.com/" }
 ```
 
-失败响应（资料记录）：
+实测结果：
 
-```json
-{ "msg2": "参数为空", "status": false }
-```
+- 响应 body 长度约 49 字节，`status` 为布尔 `true`。
+- 服务端下发 **12 个 Cookie**，域包括 `.chaoxing.com` 与 `passport2.chaoxing.com`。
+  后续对 `kb.chaoxing.com` 的课程请求复用同一 `requests.Session` / CookieJar 成功。
+- 登录失败响应未在本次联调中触发（避免反复尝试导致风控）；代码仍按 `status == false` +
+  `msg2/msg/message` 分类为 `InvalidCredentials` / `LoginFailed`，该分支 `UNVERIFIED`。
 
 实现行为：
 
@@ -70,11 +77,10 @@
 - `status == false` → 读取 `msg2` / `msg` / `message` **仅用于分类**，不展示原文；
   包含“密码/账号/账户” → `InvalidCredentials`，否则 `LoginFailed`。
 - 非 2xx → `Server`；`IOException` → `Network`。
-- 失败响应分支、验证码、双因子流程 `UNVERIFIED`，当前最小实现不支持验证码交互。
 
 ---
 
-## 3. 鉴权状态
+## 3. 鉴权状态（行为已实测）
 
 ### `GET https://passport2.chaoxing.com/getauthstatus/v2`
 
@@ -83,15 +89,22 @@
 | Method | GET |
 | 参数 | 无（资料如此描述） |
 | 认证要求 | 依赖 Cookie |
-| 状态 | 只有失败样例被捕获，成功响应 `UNVERIFIED` |
+| 状态 | 真实行为 **VERIFIED**：登录态下仍返回“参数为空”，不能用于正向确认会话 |
 
-资料中记录的失败响应：
+真实响应（**在刚刚登录成功、Cookie 会话有效的情况下**）：
 
 ```json
 { "mes": "参数为空", "type": "1", "status": false }
 ```
 
-实现采用三态解释，而不是“非 true 即失效”：
+这一点非常重要：
+
+- 即使会话完全有效，该接口在无参数调用时也会返回 `status: false` + “参数为空”。
+- 因此 **不能** 把 `status != true` 当作“会话失效”并清 Cookie，否则用户每次启动都会被登出。
+- 这正是 `AuthRepository` / `RootViewModel` 采用 `VALID / INVALID / UNKNOWN` 三态，
+  并把“参数为空”归为 `UNKNOWN` 的真实原因。
+
+实现判定：
 
 | 判定 | 条件 |
 |---|---|
@@ -99,8 +112,8 @@
 | `INVALID` | HTTP 401/403；响应是登录页 HTML；`status == false` 且文案含“未登录/失效/过期/没有权限” |
 | `UNKNOWN` | 其他一切（含“参数为空”、无法解析、网络失败） |
 
-`UNKNOWN` 时 App 进入课表并依赖课程请求判定会话，避免误登出；网络失败也归为 `UNKNOWN`。
-`INVALID` 会立即清除本地 Cookie。
+`UNKNOWN` 时进入课表并依赖课程请求做最终判定。真正的“会话过期”响应本次未捕获，
+代码对 401/403、登录页 HTML、失效文案的防御性处理为 `UNVERIFIED`，但不会误登出。
 
 ---
 
@@ -108,13 +121,13 @@
 
 ### `POST https://www.chaoxing.com/entry/cookie/get`
 
-资料记录该接口用于读取指定 Cookie（`name=UID,current_page_id,...`），返回
-`{code, data:{...}, status:200}`。**MVP 不需要它**：Cookie 由本地 CookieJar 管理，
-因此没有实现，也不在 UI 暴露。保留此记录仅为文档完整性。
+资料记录该接口用于读取指定 Cookie，返回 `{code, data:{...}, status:200}`。
+**MVP 不需要它**：Cookie 由本地 CookieJar 管理，因此没有实现，也不在 UI 暴露。
+本次联调也未调用该接口。
 
 ---
 
-## 5. 课程
+## 5. 课程（响应结构 VERIFIED）
 
 ### `GET https://kb.chaoxing.com/pc/curriculum/getMyLessons`
 
@@ -123,65 +136,120 @@
 | Method | GET |
 | 参数 | `curTime`（毫秒时间戳） |
 | 认证要求 | 依赖 Cookie/Session |
-| 状态 | 参数与部分字段来自抓包（VERIFIED）；**完整响应结构 `UNVERIFIED`** |
+| 响应 Content-Type | `application/json` |
+| 状态 | **结构已通过真实响应验证**（2026-11-06）；过期会话分支 `UNVERIFIED` |
 
-资料给出的部分字段示例：
+真实响应结构（值已替换为占位符，字段名/类型来自真实抓取）：
 
 ```json
 {
-  "status": 200,
-  "data": [
-    {
-      "id": "课程ID",
-      "name": "课程名称",
-      "teacher": "教师姓名",
-      "time": "上课时间",
-      "location": "上课地点",
-      "status": "课程状态"
-    }
-  ]
+  "data": {
+    "schools": [],
+    "sysTime": 1793946884693,
+    "curriculum": {
+      "currentWeek": 10,
+      "realCurrentWeek": 10,
+      "maxWeek": 22,
+      "schoolYear": "2026",
+      "semester": 1,
+      "sectionTime": 45,
+      "lessonLength": 170,
+      "morningTime": "08:30",
+      "afternoonTime": "14:00",
+      "eveningTime": "18:30",
+      "lessonTimeConfigArray": ["08:30-09:15", "09:20-10:05", "10:25-11:10"]
+    },
+    "config": { "conflictStyle": 1 },
+    "lessonArray": [
+      {
+        "lessonId": "唯一的上课实例 ID",
+        "courseId": 0,
+        "name": "课程名称",
+        "teacherName": "教师姓名",
+        "location": "上课地点",
+        "dayOfWeek": 5,
+        "beginNumber": 5,
+        "length": 2,
+        "weeks": "10",
+        "day": "11-06",
+        "wholeDay": "2026-11-06",
+        "className": "班级",
+        "courseNo": "课程号",
+        "classNo": "教学班号",
+        "extend": "{\"campus\":\"校区\",\"fbzt\":0}",
+        "conflictUuids": []
+      }
+    ]
+  },
+  "msg": null,
+  "result": 1
 }
 ```
 
-### 5.1 容错解析策略
+### 5.1 关键结构说明
 
-由于完整结构未验证，`ChaoxingLessonParser` 做**受控容错**，绝不臆造数据：
+- 顶层是 `{data, msg, result}`，**没有 `status` 字段**；`result` 为整数 `1`，`msg` 为 `null`。
+  不要用顶层 `status` 判断成功。
+- 课程列表位于 `data.lessonArray`，不是 `data.data` / `data.list`。
+- `data.schools` 为 `[]`，**不能**把它当作“本周没有课”的空课表；真正的课表是 `lessonArray`。
+- `data.curriculum` 携带学期/周次元数据；`lessonTimeConfigArray` 是 **节次时间字符串数组**，
+  不是课程数组，长度 11（含 08:30-09:15 等）。本项目不把它当课程解析。
+- 本次真实响应包含 **14 条** `lessonArray`：`dayOfWeek` 为 1–5（周一至周五），
+  `beginNumber` 为 1/3/5/7/9，`length` 为 2，`weeks` 为 "10"，日期覆盖 2026-11-02 至 2026-11-06。
+  这 14 条全部成功映射进 7×10 网格（实网集成测试断言 `mapped == parsed`）。
+- 接口返回的是**当前 `curTime` 所在周**的课程实例（本次为第 10 周），不是整学期列表。
+  因此 App 不提供“切换周次”，只展示本次同步到的这一周。
 
-1. 在 JSON 树中寻找课程数组：
-   - 顶层是数组 → 直接使用；
-   - 对象中按 `lessons` → `lessonList` → `data` → `list` → `rows` → `result` → `records` → `courseList` 查找；
-   - `data` 是**字符串**时再次解析为 JSON；
-   - 都没有时，才在对象中寻找“看起来像课程”的数组（首元素含标题字段）。
-2. 字段别名（仅列出已实现的）：
+### 5.2 已验证字段映射
 
-| 内部字段 | 接受的来源字段 |
-|---|---|
-| 标题 | `name`, `title`, `courseName`, `lessonName`, `curriculumName`, `courseTitle` |
-| 教师 | `teacher`, `teacherName`, `teacherNames`, `teachers`, `teacher_name`；数组时用“、”连接 |
-| 地点 | `location`, `place`, `classroom`, `room`, `address`, `addr`, `classroomName`；对象时取 `name/address/place/location` |
-| ID | `id`, `courseId`, `lessonId`, `curriculumId`, `lesson_id`, `curriculum_id` |
-| 星期（1 基） | `weekDay`, `weekday`, `dayOfWeek`, `week_day`, `xq`, `weekdayNum`, `week` |
-| 星期（0 基） | `day`, `dayIndex`, `dayOfWeekIndex`, `weekIndex` |
-| 开始节 | `start`, `startSection`, `sectionStart`, `nodeStart`, `beginSection`, `startNode`, `startSectionNum`, `sectionStartNum` |
-| 结束节 | `end`, `endSection`, `sectionEnd`, `nodeEnd`, `endNode`, `endSectionNum` |
-| 跨节数 | `span`, `sectionSpan`, `nodeNum`, `sectionCount`, `step`, `length`, `duration`, `periods` |
-| 时间文本 | `time`, `timeText`, `sectionText`, `courseTime`, `lessonTime`, `classTime`, `timeStr` |
-| 节次数组 | `sections: [3,4]` → start=3, end=4, span=2 |
-| 嵌套节次对象 | `section`/`node`/`period`/`sectionInfo` 等对象中的 start/end/span |
+| 内部字段 | 真实来源 | 说明 |
+|---|---|---|
+| 标题 | `name` | 必填；缺失则丢弃该条 |
+| 教师 | `teacherName` | 可为空 |
+| 地点 | `location` | 可为空 |
+| 实例 ID | `lessonId` | 唯一；`courseId` 是课程级 ID，同一门课一周内重复，**不能用于去重** |
+| 星期 | `dayOfWeek` | **1–7，1=周一**；转换为内部 0–6 |
+| 开始节 | `beginNumber` | 1–10 |
+| 跨节数 | `length` | 本次真实值为 2 |
+| 周次 | `weeks` | 字符串；本项目不做周次过滤 |
+| 日期 | `day` / `wholeDay` | `11-06` / `2026-11-06`；不参与网格定位 |
+| 校区 | `extend` | JSON 字符串；MVP 不使用 |
 
-3. 时间文本兜底（如 `周一第1-2节`）：
-   - 星期：`星期/周/礼拜` + `一…日/天/1-7`；
-   - 节次：必须显式出现“节”，避免把 `08:00-09:40` 误判成节次。
-4. 无法确定 day（0–6）或 start（1–10）的条目**直接丢弃**，不猜测、不挪到别的格子。
+### 5.3 容错解析策略
+
+`ChaoxingLessonParser` 以真实结构为准，同时保留对旧/变体结构的容错：
+
+1. 容器查找顺序：`lessonArray` → `lessons` → `lessonList` → `data` → `list` → `rows` →
+   `result` → `records` → `courseList`；也接受 `data` 是 JSON 字符串的情况。
+2. 只有在上述键都找不到时，才扫描对象中的数组作为兜底，并且要求数组**非空**且“像课程”。
+   这样 `data.schools: []` 不会被误判为空课表。
+3. 字段别名仍保留（例如标题也接受 `title`/`courseName`），以应对未来结构变化。
+4. 无法确定 `day`（0–6）或 `start`（1–10）的条目直接丢弃，不猜测、不挪到别的格子。
 5. `span` 超过第 10 节时裁剪到 `11 - start`。
+6. 空 `lessonArray` 是合法的空课表，映射为 0 门课并进入 Empty 状态，不是错误。
 
-### 5.2 会话失效判定
+### 5.4 内部 Course ID
+
+`Course.id` 不是裸 `lessonId`，而是：
+
+```text
+<lessonId 或 cx>@<day>-<start>-<span>-<titleHash>
+```
+
+原因：真实数据的 `courseId` 会在同一门课的多次上课中重复；即使解析到课程级 ID，
+不同网格位置的实例也必须拥有不同的 `id`（Compose key 与缓存都需要唯一）。
+完整相同的条目（同 ID、同位置、同标题）仍会在 Mapper 去重。
+
+### 5.5 会话失效判定
 
 - HTTP 401/403 → `SessionExpired`
-- 响应以 `<` 开头或包含 `<html` → 被重定向到登录页 → `SessionExpired`
-- 顶层 `status != 200` 且 `msg/message` 含失效文案 → `SessionExpired`
+- 响应是登录页 HTML → `SessionExpired`
+- 顶层 `msg/message` 含失效文案 → `SessionExpired`
 - 无课程容器且存在失效文案 → `SessionExpired`，否则 `CourseFetch`
-- 空数组 → 合法的“没有课程”，进入 Empty 状态
+- 空 `lessonArray` → 合法的“没有课程”
+
+本次未捕获真实的过期会话响应，因此上述分支的**具体服务端表现 `UNVERIFIED`**；
+但错误不会破坏已有缓存，且会清理本地会话并回到登录页。
 
 ---
 
@@ -197,17 +265,44 @@
 
 ---
 
-## 7. 安全与日志
+## 7. 真实联调与可复现方式
+
+引擎/客户端：
+
+- 2026-11-06 先使用独立 Python 探针验证登录与响应结构；
+- 再用项目真实的 `ChaoxingApiClient` + `ChaoxingCookieJar` + `ChaoxingLessonParser` +
+  `CourseMapper` 执行 `LiveChaoxingApiTest`，断言：
+  - 登录成功；
+  - CookieJar 中产生了会话 Cookie；
+  - 课程请求成功且非空；
+  - **解析出的每一条课程都能映射进 7×10 网格**（实网 14/14）。
+
+复现（凭据只放在环境变量中，不写入任何文件）：
+
+```bash
+export XINGCLASS_TEST_ACCOUNT=你的账号
+export XINGCLASS_TEST_PASSWORD=你的密码
+cd android
+./gradlew testDebugUnitTest --tests '*LiveChaoxingApiTest' --no-daemon
+```
+
+该测试在 CI 中默认跳过（`Assume.assumeTrue`），不会因为缺少凭据失败，也不会在仓库或日志中
+留下账号密码。提交到仓库的真实结构样本已脱敏。
+
+---
+
+## 8. 安全与日志
 
 - 登录表单包含加密后的账号密码；Cookie 是会话凭证。两者都不进入日志、异常信息或缓存文件。
 - `Logger` 只接受固定事件名（`LOGIN_REQUEST_STARTED`、`COURSE_FETCH_SUCCESS` 等），
   异常只记录**类名**。
 - 所有接口仅通过 HTTPS；`usesCleartextTraffic=false`。
+- 联调期间没有把任何账号、密码、Cookie、课程名、教师名写入仓库或文档。
 
-## 8. 当真实响应与本文不一致时
+## 9. 当真实响应再次变化时
 
-1. 不要改 UI 去适配猜测，先抓取真实 JSON；
-2. 在 Debug 构建下确认失败点（事件名，不打印敏感体）；
-3. 更新 `ChaoxingLessonParser` 的别名或容器键，并补充单元测试；
+1. 不要改 UI 去适配猜测，先用一次真实请求确认结构（不要把响应体提交到仓库）；
+2. 更新 `ChaoxingLessonParser` 的容器键/字段别名，并补充脱敏结构测试；
+3. 如果再次出现“空数组抢占课程列表”之类的结构，优先在 Parser 中收紧条件，而不是在 Mapper 中兜底；
 4. 更新本文档，把 `UNVERIFIED` 改为已验证结论，并注明日期；
-5. 不要在源码、文档、Issue 或日志中留下账号、密码、Cookie。
+5. 不要在源码、文档、Issue 或日志中留下账号、密码、Cookie 或真实课程数据。

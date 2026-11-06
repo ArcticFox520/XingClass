@@ -117,4 +117,99 @@ class ChaoxingLessonParserTest {
         val lesson = lessonsOf(raw).lessons.single()
         assertNull(lesson.dayIndex)
     }
+
+    @Test
+    fun `parses the verified live lessonArray envelope`() {
+        // Shape captured from the real getMyLessons response on 2026-11-06. All personal
+        // values are replaced with placeholders; only field names and types are preserved.
+        val raw = """
+            {
+              "data": {
+                "schools": [],
+                "sysTime": 1793946884693,
+                "curriculum": {
+                  "realCurrentWeek": 10,
+                  "currentWeek": 10,
+                  "maxWeek": 22,
+                  "schoolYear": "2026",
+                  "semester": 1,
+                  "lessonTimeConfigArray": ["08:30-09:15", "09:20-10:05"]
+                },
+                "config": { "conflictStyle": 1 },
+                "lessonArray": [
+                  {
+                    "lessonId": "L1", "name": "示例课程A", "teacherName": "示例教师A",
+                    "location": "示例楼A101", "dayOfWeek": 1, "beginNumber": 1, "length": 2,
+                    "weeks": "10", "day": "11-02", "wholeDay": "2026-11-02",
+                    "className": "示例班级", "courseNo": "X1",
+                    "extend": "{\"campus\":\"示例校区\",\"fbzt\":0}"
+                  },
+                  {
+                    "lessonId": "L2", "name": "示例课程B", "teacherName": "示例教师B",
+                    "location": "示例楼B202", "dayOfWeek": 5, "beginNumber": 5, "length": 2,
+                    "weeks": "10", "day": "11-06", "wholeDay": "2026-11-06"
+                  },
+                  {
+                    "lessonId": "L3", "name": "示例课程C", "teacherName": "示例教师C",
+                    "location": "示例楼C303", "dayOfWeek": 7, "beginNumber": 9, "length": 2,
+                    "weeks": "10", "day": "11-08", "wholeDay": "2026-11-08"
+                  }
+                ]
+              },
+              "msg": null,
+              "result": 1
+            }
+        """.trimIndent()
+
+        val lessons = lessonsOf(raw).lessons
+
+        assertEquals(3, lessons.size)
+        assertEquals("示例课程A", lessons[0].title)
+        assertEquals("示例教师A", lessons[0].teacher)
+        assertEquals("示例楼A101", lessons[0].location)
+        assertEquals("L1", lessons[0].id)
+        assertEquals(0, lessons[0].dayIndex) // dayOfWeek 1 -> Monday
+        assertEquals(1, lessons[0].start) // beginNumber
+        assertEquals(2, lessons[0].span) // length
+
+        assertEquals(4, lessons[1].dayIndex) // dayOfWeek 5 -> Friday
+        assertEquals(5, lessons[1].start)
+
+        assertEquals(6, lessons[2].dayIndex) // dayOfWeek 7 -> Sunday
+        assertEquals(9, lessons[2].start)
+    }
+
+    @Test
+    fun `empty live lessonArray is a valid empty schedule when schools is also empty`() {
+        val raw = """
+            {"data":{"schools":[],"curriculum":{"currentWeek":10},"lessonArray":[]},"result":1}
+        """.trimIndent()
+
+        val payload = ChaoxingLessonParser.parse(raw)
+
+        assertTrue(payload is LessonPayload.Lessons)
+        assertEquals(0, (payload as LessonPayload.Lessons).lessons.size)
+    }
+
+    @Test
+    fun `period time config is never mistaken for lessons`() {
+        val raw = """
+            {"data":{"lessonTimeConfigArray":["08:30-09:15","09:20-10:05"],"lessonArray":[]},"result":1}
+        """.trimIndent()
+
+        val payload = ChaoxingLessonParser.parse(raw)
+
+        assertTrue(payload is LessonPayload.Lessons)
+        assertEquals(0, (payload as LessonPayload.Lessons).lessons.size)
+    }
+
+    @Test
+    fun `prefers the unique lessonId over the course level courseId`() {
+        val raw = """
+            [{"lessonId":"L1","courseId":0,"name":"示例课程","dayOfWeek":1,
+              "beginNumber":1,"length":2}]
+        """.trimIndent()
+
+        assertEquals("L1", lessonsOf(raw).lessons.single().id)
+    }
 }

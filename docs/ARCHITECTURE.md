@@ -81,14 +81,15 @@ App 启动
   │      └─ refreshCourses() → 成功更新；失败保留缓存并标记 Offline
 ```
 
-`UNKNOWN` 的处理是刻意的：抓包资料只记录了 `getauthstatus/v2` 的“参数为空”失败响应，
-无法据此证明 Cookie 失效。宁可进入课表由课程请求再判定，也不错误地把用户登出。
+`UNKNOWN` 的处理是刻意的，并已被真实联调验证：即使 Cookie 会话完全有效，
+`getauthstatus/v2` 仍返回 `{"mes":"参数为空","status":false}`。因此不能据此清会话；
+宁可进入课表由课程请求再判定，也不错误地把用户登出。
 
 ## 4. 数据流
 
 ```text
 Chaoxing JSON
-  → ChaoxingLessonParser（定位课程数组，多字段别名）
+  → ChaoxingLessonParser（真实容器 data.lessonArray；保留多字段别名兜底）
   → ChaoxingLessonDto（规范化中间态）
   → CourseMapper（day/start/span 校验、时间文本兜底、颜色、去重、排序）
   → Course（domain）
@@ -149,6 +150,8 @@ UI 永远不直接使用超星 JSON。解析器的容错策略与未验证字段
 ## 9. 测试策略
 
 - 纯逻辑（Crypto、Parser、Mapper、Layout、AutoTheme、Mask）→ 快速 JVM 单元测试
+- 真实结构回归：把 2026-11-06 实网响应脱敏后固化进 `ChaoxingLessonParserTest`
+- 实网集成：`LiveChaoxingApiTest` 默认跳过，凭据仅通过环境变量注入
 - HTTP 行为 → MockWebServer 验证请求方法/表单/加密/Cookie 回放/错误映射
 - Repository → 假远端 + 假缓存，覆盖成功、失败、缓存回退、会话失效
 - 缓存 → JUnit TemporaryFolder 验证原子写、坏文件清理
