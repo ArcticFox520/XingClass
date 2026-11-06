@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Soft card -->
+    <path
+        android:fillColor="#3D4452"
+        android:pathData="M40,26h28a14,14 0,0 1,14 14v28a14,14 0,0 1,-14 14h-28a14,14 0,0 1,-14 -14v-28a14,14 0,0 1,14 -14z" />
+
+    <!-- "X" monogram, rotated plus sign -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="45">
+        <path
+            android:fillColor="#E0E5EC"
+            android:pathData="M50,38h8v32h-8z" />
+        <path
+            android:fillColor="#6D5DFC"
+            android:pathData="M38,50h32v8h-32z" />
+    </group>
+</vector>

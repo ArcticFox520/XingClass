@@ -1,0 +1,67 @@
+name: Debug Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: debug-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint, test and assemble debug
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Lint
+        run: ./gradlew lint --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew test --stacktrace
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify debug APK
+        run: |
+          APK=app/build/outputs/apk/debug/XingClass-arm64-v8a-debug.apk
+          test -f "$APK" || { echo "Debug APK missing"; exit 1; }
+          if unzip -l "$APK" | grep -q ' lib/'; then
+            echo "Unexpected native libraries:"
+            unzip -l "$APK" | grep ' lib/'
+            exit 1
+          fi
+          echo "No native libraries; arm64-v8a filter is the only ABI guard."
+          sha256sum "$APK"
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XingClass-debug-apk
+          path: android/app/build/outputs/apk/debug/XingClass-arm64-v8a-debug.apk
+          if-no-files-found: error
+          retention-days: 14

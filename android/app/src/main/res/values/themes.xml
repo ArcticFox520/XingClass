@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Plain platform theme: no AppCompat / Material XML dependency, no action bar.
+         The real UI is fully Compose. -->
+    <style name="Theme.XingClass" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/xingclass_window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">@color/xingclass_accent</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>

@@ -1,0 +1,30 @@
+# Android / Gradle
+*.iml
+.gradle/
+local.properties
+keystore.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+android/.kotlin/
+
+# Build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Signing material — never commit
+*.jks
+*.keystore
+*.p12
+release/
+keystore/
+
+# Reports
+lint-results*.html
+lint-results*.xml
+test-results/
