@@ -20,6 +20,7 @@ data class ScheduleUiState(
     val courses: List<Course> = emptyList(),
     val loading: Boolean = true,
     val refreshing: Boolean = false,
+    val switchingWeek: Boolean = false,
     val fromCache: Boolean = false,
     val offline: Boolean = false,
     val error: AppError? = null,
@@ -29,6 +30,11 @@ data class ScheduleUiState(
     val todayDate: LocalDate = LocalDate.now(),
     val message: UiText? = null,
     val sessionExpired: Boolean = false,
+    /** Week currently displayed (1-based). Null until the first successful load. */
+    val week: Int? = null,
+    /** The server's real current week; independent from [week] when browsing another week. */
+    val realCurrentWeek: Int? = null,
+    val maxWeek: Int? = null,
 ) {
     val status: ScheduleStatus
         get() = when {
@@ -40,4 +46,18 @@ data class ScheduleUiState(
             fromCache -> ScheduleStatus.CACHED
             else -> ScheduleStatus.SUCCESS
         }
+
+    val isCurrentWeek: Boolean
+        get() = week != null && realCurrentWeek != null && week == realCurrentWeek
+
+    val canGoPreviousWeek: Boolean
+        get() = !refreshing && !switchingWeek && week != null && week > 1
+
+    val canGoNextWeek: Boolean
+        get() = !refreshing && !switchingWeek && week != null &&
+            maxWeek != null && week < maxWeek
+
+    /** Today's column is only meaningful while looking at the real current week. */
+    val highlightedTodayIndex: Int
+        get() = if (isCurrentWeek || week == null) todayIndex else -1
 }

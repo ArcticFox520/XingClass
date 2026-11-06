@@ -14,10 +14,27 @@ object DateLabels {
     fun weekStart(today: LocalDate): LocalDate =
         today.minusDays((today.dayOfWeek.value - 1).toLong())
 
-    fun weekDates(today: LocalDate): List<LocalDate> {
-        val monday = weekStart(today)
-        return (0..6).map { monday.plusDays(it.toLong()) }
+    fun weekDates(today: LocalDate): List<LocalDate> = weekDatesFrom(weekStart(today))
+
+    /**
+     * Dates for a selected teaching week. The server's real current week is the anchor, so the
+     * week strip stays correct when the user browses past/future weeks.
+     */
+    fun weekDatesFor(
+        selectedWeek: Int?,
+        realCurrentWeek: Int?,
+        today: LocalDate,
+    ): List<LocalDate> {
+        val offset = if (selectedWeek != null && realCurrentWeek != null) {
+            selectedWeek - realCurrentWeek
+        } else {
+            0
+        }
+        return weekDatesFrom(weekStart(today).plusWeeks(offset.toLong()))
     }
+
+    private fun weekDatesFrom(monday: LocalDate): List<LocalDate> =
+        (0..6).map { monday.plusDays(it.toLong()) }
 
     fun weekdayShortRes(dayIndex: Int): Int = when (dayIndex.coerceIn(0, 6)) {
         0 -> R.string.weekday_short_1

@@ -18,10 +18,26 @@ data class ChaoxingLessonDto(
     val end: Int? = null,
     val span: Int? = null,
     val timeText: String? = null,
+    /** Raw `weeks` field (e.g. "10"); used to verify week switching in the live test. */
+    val weeks: String? = null,
+)
+
+/**
+ * A complete lesson page. Week fields come from `data.curriculum`; when [week] is requested via
+ * the `week` query parameter the server still reports the *real* current week in
+ * [currentWeek]/[realCurrentWeek], which is exactly what the UI needs for "回到本周".
+ */
+data class ChaoxingScheduleDto(
+    val lessons: List<ChaoxingLessonDto>,
+    val currentWeek: Int? = null,
+    val realCurrentWeek: Int? = null,
+    val maxWeek: Int? = null,
 )
 
 sealed interface LessonPayload {
-    data class Lessons(val lessons: List<ChaoxingLessonDto>) : LessonPayload
+    data class Lessons(val schedule: ChaoxingScheduleDto) : LessonPayload {
+        val lessons: List<ChaoxingLessonDto> get() = schedule.lessons
+    }
 
     /** JSON was valid but contained no recognizable lesson list. */
     data object NoLessonContainer : LessonPayload

@@ -47,7 +47,7 @@ import kotlin.math.roundToInt
 object ScheduleMetrics {
     val PeriodColumnWidth = 38.dp
     val Gap = 6.dp
-    val GridPadding = 6.dp
+    val GridPadding = 8.dp
 }
 
 /**
@@ -84,7 +84,7 @@ fun ScheduleGrid(
                 .padding(ScheduleMetrics.GridPadding),
         ) {
             GridGuides(
-                todayIndex = state.todayIndex,
+                todayIndex = state.highlightedTodayIndex,
                 modifier = Modifier.matchParentSize(),
             )
 
@@ -96,7 +96,7 @@ fun ScheduleGrid(
                 state.courses.isEmpty() && state.error != null ->
                     GridError(error = state.error ?: AppError.Unknown, onRetry = onRetry)
 
-                state.courses.isEmpty() -> GridEmpty()
+                state.courses.isEmpty() -> GridEmpty(showWeekHint = state.week != null && !state.isCurrentWeek)
 
                 else -> ScheduleGridBody(
                     placements = placements,
@@ -171,7 +171,6 @@ private fun ScheduleGridBody(
                     CourseCard(
                         course = placement.course,
                         palette = colors.paletteFor(placement.course.color),
-                        showLocation = placement.rowSpan >= 2,
                         compact = placement.columnCount > 1,
                         onClick = { onCourseClick(placement.course) },
                     )
@@ -227,11 +226,13 @@ private fun GridLoading() {
 }
 
 @Composable
-private fun GridEmpty() {
+private fun GridEmpty(showWeekHint: Boolean = false) {
     val colors = LocalNeumorphicColors.current
     GridMessage(
         title = stringResource(R.string.schedule_empty_title),
-        body = stringResource(R.string.schedule_empty_hint),
+        body = stringResource(
+            if (showWeekHint) R.string.schedule_empty_week_hint else R.string.schedule_empty_hint,
+        ),
         titleColor = colors.textPrimary,
     )
 }

@@ -19,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,6 +33,7 @@ import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingAnimation
 import com.xingclass.app.ui.theme.XingClassType
 import com.xingclass.app.ui.theme.XingRadii
+import com.xingclass.app.ui.util.parseLocation
 
 /**
  * A single lesson inside the grid.
@@ -38,19 +41,24 @@ import com.xingclass.app.ui.theme.XingRadii
  * The card is raised out of the recessed grid base. Pressing it transitions the shadow from
  * raised to inset (no translation) and opens the day drawer.
  *
- * Text is always clamped and ellipsized; the number of title lines is derived from the measured
- * card height so a long course name can never push the layout out of the grid.
+ * Space usage is measured, not guessed from the span:
+ *  - the title gets 1..5 lines depending on available height;
+ *  - if there is room, the location is split into a building line and a room line;
+ *  - if only one line fits, the full location is shown instead of hiding it.
+ *
+ * The same measured budget also includes font scaling (sp -> dp), so a large system font cannot
+ * push the location out of the card. The card clips its content as a final safety net.
  */
 @Composable
 fun CourseCard(
     course: Course,
     palette: CoursePalette,
-    showLocation: Boolean,
     compact: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalNeumorphicColors.current
+    val density = LocalDensity.current
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val pressProgress by animateFloatAsState(
@@ -59,10 +67,17 @@ fun CourseCard(
         label = "coursePress",
     )
 
+    val location = remember(course.location) { parseLocation(course.location) }
+    val titleStyle = if (compact) XingClassType.gridTitleCompact else XingClassType.gridTitle
+    val titleLineHeight = with(density) { titleStyle.lineHeight.toDp() }
+    val captionLineHeight = with(density) { XingClassType.gridCaption.lineHeight.toDp() }
+    val locationGap = 1.dp
+    val shape = RoundedCornerShape(XingRadii.small)
+
     BoxWithConstraints(
         modifier = modifier
             .neumorphic(
-                shape = RoundedCornerShape(XingRadii.small),
+                shape = shape,
                 style = NeumorphicStyle.RAISED,
                 backgroundColor = palette.background,
                 lightShadow = colors.lightShadow,
@@ -70,6 +85,7 @@ fun CourseCard(
                 elevation = NeumorphicElevation.SMALL,
                 pressProgress = pressProgress,
             )
+            .clip(shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -78,11 +94,21 @@ fun CourseCard(
             )
             .padding(horizontal = 4.dp, vertical = 3.dp),
     ) {
-        val titleLine = 12.dp
-        val captionLine = 10.dp
-        val canShowLocation = showLocation && maxHeight >= 42.dp
-        val reserved = if (canShowLocation) captionLine + 2.dp else 0.dp
-        val titleLines = ((maxHeight - reserved) / titleLine).toInt().coerceIn(1, 4)
+        val available = maxHeight
+        val locationLineCount = when {
+            location.building != null && location.room != null -> 2
+            location.hasLocation -> 1
+            else -> 0
+        }
+        val textLayout = CourseCardLayout.compute(
+            availableHeight = available,
+            titleLineHeight = titleLineHeight,
+            captionLineHeight = captionLineHeight,
+            lineGap = locationGap,
+            locationLineCount = locationLineCount,
+        )
+        val titleLines = textLayout.titleLines
+        val shownLocationLines = textLayout.locationLines
 
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -90,15 +116,33 @@ fun CourseCard(
         ) {
             Text(
                 text = course.title,
-                style = if (compact) XingClassType.gridTitleCompact else XingClassType.gridTitle,
+                style = titleStyle,
                 color = palette.content,
                 maxLines = titleLines,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (canShowLocation && !course.location.isNullOrBlank()) {
-                Spacer(Modifier.height(2.dp))
+
+            if (shownLocationLines == 2) {
+                Spacer(Modifier.height(locationGap))
                 Text(
-                    text = course.location,
+                    text = location.building.orEmpty(),
+                    style = XingClassType.gridCaption,
+                    color = palette.content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = location.room.orEmpty(),
+                    style = XingClassType.gridCaption,
+                    color = palette.content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else if (shownLocationLines == 1) {
+                Spacer(Modifier.height(locationGap))
+                val oneLine = if (location.hasSplit) location.raw else location.room ?: location.building
+                Text(
+                    text = oneLine.orEmpty(),
                     style = XingClassType.gridCaption,
                     color = palette.content,
                     maxLines = 1,

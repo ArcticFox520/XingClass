@@ -49,7 +49,7 @@ val LightNeumorphicColors = NeumorphicColors(
     background = Color(0xFFE0E5EC),
     surface = Color(0xFFE0E5EC),
     lightShadow = Color(0xFFFFFFFF),
-    darkShadow = Color(0xFFB8BEC7),
+    darkShadow = Color(0xFFA6ADB8),
     textPrimary = Color(0xFF39414F),
     textSecondary = Color(0xFF586172),
     textTertiary = Color(0xFF5F6979),
@@ -73,8 +73,8 @@ val DarkNeumorphicColors = NeumorphicColors(
     isDark = true,
     background = Color(0xFF2B3038),
     surface = Color(0xFF2B3038),
-    lightShadow = Color(0xFF38404B),
-    darkShadow = Color(0xFF1E2228),
+    lightShadow = Color(0xFF434D5A),
+    darkShadow = Color(0xFF15191F),
     textPrimary = Color(0xFFE3E8EF),
     textSecondary = Color(0xFFA3ADBB),
     textTertiary = Color(0xFF909AA9),
@@ -185,8 +185,8 @@ object XingClassType {
         fontWeight = FontWeight.Medium,
     )
     val gridCaption = TextStyle(
-        fontSize = 8.sp,
-        lineHeight = 10.sp,
+        fontSize = 9.sp,
+        lineHeight = 11.sp,
         fontWeight = FontWeight.Normal,
     )
     val periodNumber = TextStyle(

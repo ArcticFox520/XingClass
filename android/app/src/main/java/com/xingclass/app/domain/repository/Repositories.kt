@@ -31,8 +31,12 @@ interface AuthRepository {
 interface CourseRepository {
     suspend fun getCachedCourses(): CourseCacheSnapshot?
 
-    /** Remote-first refresh; keeps the cache unchanged on failure. */
-    suspend fun refreshCourses(): AppResult<CourseCacheSnapshot>
+    /**
+     * Remote-first refresh; keeps the cache unchanged on failure.
+     *
+     * @param targetWeek 1-based teaching week, or null to ask for the server's current week.
+     */
+    suspend fun refreshCourses(targetWeek: Int?): AppResult<CourseCacheSnapshot>
 
     suspend fun clearCourses()
 }

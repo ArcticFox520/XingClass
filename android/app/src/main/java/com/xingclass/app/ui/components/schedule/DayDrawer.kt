@@ -51,6 +51,7 @@ import com.xingclass.app.ui.theme.XingClassType
 import com.xingclass.app.ui.theme.XingRadii
 import com.xingclass.app.ui.theme.XingSpacing
 import com.xingclass.app.ui.util.dateLabel
+import com.xingclass.app.ui.util.parseLocation
 import com.xingclass.app.ui.util.weekdayFull
 import java.time.LocalDate
 
@@ -179,7 +180,7 @@ private fun DayDrawerPanel(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(insetShape)
-                    .padding(XingSpacing.sm),
+                    .padding(10.dp),
             ) {
                 if (courses.isEmpty()) {
                     EmptyDayHint(
@@ -216,10 +217,7 @@ private fun DrawerCourseRow(course: Course) {
         stringResource(R.string.course_period_short_range, course.start, course.endPeriod)
     }
     val unknownLocation = stringResource(R.string.course_location_unknown)
-    val subtitle = listOfNotNull(
-        course.location?.takeIf { it.isNotBlank() },
-        course.teacher?.takeIf { it.isNotBlank() },
-    ).joinToString(" · ").ifBlank { unknownLocation }
+    val location = remember(course.location) { parseLocation(course.location) }
 
     Row(
         modifier = Modifier
@@ -259,13 +257,54 @@ private fun DrawerCourseRow(course: Course) {
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
-            Text(
-                text = subtitle,
-                style = XingClassType.caption,
-                color = palette.content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            when {
+                location.building != null && location.room != null -> {
+                    Text(
+                        text = location.building.orEmpty(),
+                        style = XingClassType.caption,
+                        color = palette.content,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = location.room.orEmpty(),
+                        style = XingClassType.caption,
+                        color = palette.content,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                location.hasLocation -> {
+                    Text(
+                        text = location.raw ?: location.building ?: location.room.orEmpty(),
+                        style = XingClassType.caption,
+                        color = palette.content,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                else -> {
+                    Text(
+                        text = unknownLocation,
+                        style = XingClassType.caption,
+                        color = palette.content,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (!course.teacher.isNullOrBlank()) {
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = course.teacher,
+                    style = XingClassType.caption,
+                    color = palette.content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

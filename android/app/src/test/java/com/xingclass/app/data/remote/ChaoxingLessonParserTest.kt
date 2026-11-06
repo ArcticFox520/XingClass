@@ -9,7 +9,10 @@ import org.junit.Test
 
 class ChaoxingLessonParserTest {
 
-    private fun lessonsOf(raw: String) = ChaoxingLessonParser.parse(raw) as LessonPayload.Lessons
+    private fun lessonsOf(raw: String) =
+        ChaoxingLessonParser.parse(raw) as LessonPayload.Lessons
+
+    private fun scheduleOf(raw: String) = lessonsOf(raw).schedule
 
     @Test
     fun `parses the documented data array`() {
@@ -161,8 +164,12 @@ class ChaoxingLessonParserTest {
             }
         """.trimIndent()
 
-        val lessons = lessonsOf(raw).lessons
+        val schedule = scheduleOf(raw)
+        val lessons = schedule.lessons
 
+        assertEquals(10, schedule.currentWeek)
+        assertEquals(10, schedule.realCurrentWeek)
+        assertEquals(22, schedule.maxWeek)
         assertEquals(3, lessons.size)
         assertEquals("示例课程A", lessons[0].title)
         assertEquals("示例教师A", lessons[0].teacher)
@@ -171,12 +178,24 @@ class ChaoxingLessonParserTest {
         assertEquals(0, lessons[0].dayIndex) // dayOfWeek 1 -> Monday
         assertEquals(1, lessons[0].start) // beginNumber
         assertEquals(2, lessons[0].span) // length
+        assertEquals("10", lessons[0].weeks)
 
         assertEquals(4, lessons[1].dayIndex) // dayOfWeek 5 -> Friday
         assertEquals(5, lessons[1].start)
 
         assertEquals(6, lessons[2].dayIndex) // dayOfWeek 7 -> Sunday
         assertEquals(9, lessons[2].start)
+    }
+
+    @Test
+    fun `week metadata is null when the payload has no curriculum`() {
+        val schedule = scheduleOf(
+            """[{"name":"示例课程","dayOfWeek":1,"beginNumber":1,"length":2}]""",
+        )
+
+        assertNull(schedule.currentWeek)
+        assertNull(schedule.realCurrentWeek)
+        assertNull(schedule.maxWeek)
     }
 
     @Test

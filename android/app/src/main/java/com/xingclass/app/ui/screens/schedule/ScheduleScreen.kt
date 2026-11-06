@@ -44,6 +44,7 @@ import com.xingclass.app.ui.components.schedule.PeriodColumn
 import com.xingclass.app.ui.components.schedule.ScheduleGrid
 import com.xingclass.app.ui.components.schedule.ScheduleHeader
 import com.xingclass.app.ui.components.schedule.ScheduleMetrics
+import com.xingclass.app.ui.components.schedule.WeekSwitcher
 import com.xingclass.app.ui.schedule.ScheduleUiState
 import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingAnimation
@@ -64,6 +65,8 @@ fun ScheduleScreen(
     themeMode: ThemeMode,
     onCycleTheme: () -> Unit,
     onRefresh: () -> Unit,
+    onSelectWeek: (Int) -> Unit,
+    onGoToCurrentWeek: () -> Unit,
     onDayTabClick: (Int) -> Unit,
     onCourseClick: (Course) -> Unit,
     onCloseDay: () -> Unit,
@@ -73,7 +76,13 @@ fun ScheduleScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalNeumorphicColors.current
-    val weekDates = remember(state.todayDate) { DateLabels.weekDates(state.todayDate) }
+    val weekDates = remember(state.todayDate, state.week, state.realCurrentWeek) {
+        DateLabels.weekDatesFor(
+            selectedWeek = state.week,
+            realCurrentWeek = state.realCurrentWeek,
+            today = state.todayDate,
+        )
+    }
 
     // System back closes the drawer first instead of leaving the app.
     BackHandler(enabled = state.selectedDay != null, onBack = onCloseDay)
@@ -122,7 +131,18 @@ fun ScheduleScreen(
                 onRefresh = onRefresh,
                 onOpenSettings = onOpenSettings,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(6.dp))
+            WeekSwitcher(
+                week = state.week,
+                isCurrentWeek = state.isCurrentWeek,
+                canGoPrevious = state.canGoPreviousWeek,
+                canGoNext = state.canGoNextWeek,
+                enabled = !state.refreshing && !state.switchingWeek,
+                onPrevious = { state.week?.let { onSelectWeek(it - 1) } },
+                onNext = { state.week?.let { onSelectWeek(it + 1) } },
+                onCurrent = onGoToCurrentWeek,
+            )
+            Spacer(Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -130,7 +150,7 @@ fun ScheduleScreen(
                 Spacer(Modifier.width(ScheduleMetrics.PeriodColumnWidth + ScheduleMetrics.Gap))
                 DayTabs(
                     selectedDay = state.selectedDay,
-                    todayIndex = state.todayIndex,
+                    todayIndex = state.highlightedTodayIndex,
                     weekDates = weekDates,
                     onDayClick = onDayTabClick,
                     modifier = Modifier.weight(1f),

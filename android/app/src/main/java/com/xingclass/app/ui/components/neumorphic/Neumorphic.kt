@@ -32,9 +32,10 @@ data class NeumorphicShadow(
 )
 
 enum class NeumorphicElevation(val shadow: NeumorphicShadow) {
-    SMALL(NeumorphicShadow(offset = 3.dp, blur = 6.dp, depth = 3.dp)),
-    MEDIUM(NeumorphicShadow(offset = 4.dp, blur = 9.dp, depth = 4.dp)),
-    LARGE(NeumorphicShadow(offset = 6.dp, blur = 14.dp, depth = 6.dp)),
+    // Deliberately pronounced: the raised/inset contrast is the core of XingClass' look.
+    SMALL(NeumorphicShadow(offset = 4.dp, blur = 9.dp, depth = 4.dp)),
+    MEDIUM(NeumorphicShadow(offset = 7.dp, blur = 14.dp, depth = 7.dp)),
+    LARGE(NeumorphicShadow(offset = 10.dp, blur = 22.dp, depth = 10.dp)),
 }
 
 enum class NeumorphicStyle {

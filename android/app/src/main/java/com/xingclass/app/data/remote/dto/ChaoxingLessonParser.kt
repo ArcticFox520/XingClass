@@ -82,7 +82,17 @@ object ChaoxingLessonParser {
         val lessons = array.mapNotNull { element ->
             (element as? JsonObject)?.let(::toLesson)
         }.filter { !it.title.isNullOrBlank() }
-        return LessonPayload.Lessons(lessons)
+
+        val curriculum = findCurriculum(root, depth = 0)
+        return LessonPayload.Lessons(
+            ChaoxingScheduleDto(
+                lessons = lessons,
+                currentWeek = curriculum?.intOf("currentWeek"),
+                realCurrentWeek = curriculum?.intOf("realCurrentWeek")
+                    ?: curriculum?.intOf("currentWeek"),
+                maxWeek = curriculum?.intOf("maxWeek"),
+            ),
+        )
     }
 
     private fun findLessonArray(element: JsonElement, depth: Int): JsonArray? {
@@ -124,6 +134,34 @@ object ChaoxingLessonParser {
 
         is JsonObject -> findLessonArray(element, depth + 1)
         else -> null
+    }
+
+    /**
+     * Finds `data.curriculum` (or an equivalent metadata object) without assuming its depth.
+     * It is identified by week fields, so lesson objects with a `weeks` field never match.
+     */
+    private fun findCurriculum(element: JsonElement, depth: Int): JsonObject? {
+        if (depth > 6) return null
+        return when (element) {
+            is JsonObject -> {
+                if (element.containsKey("currentWeek") ||
+                    element.containsKey("realCurrentWeek") ||
+                    element.containsKey("maxWeek")
+                ) {
+                    element
+                } else {
+                    element.values.firstNotNullOfOrNull { findCurriculum(it, depth + 1) }
+                }
+            }
+
+            is JsonArray -> element.firstNotNullOfOrNull { findCurriculum(it, depth + 1) }
+
+            is JsonPrimitive -> if (element.isString) {
+                parseNested(element.content)?.let { findCurriculum(it, depth + 1) }
+            } else {
+                null
+            }
+        }
     }
 
     private fun looksLikeLessonArray(array: JsonArray): Boolean {
@@ -169,6 +207,7 @@ object ChaoxingLessonParser {
             end = end,
             span = span,
             timeText = obj.textOf(*timeTextKeys),
+            weeks = obj.textOf("weeks"),
         )
     }
 

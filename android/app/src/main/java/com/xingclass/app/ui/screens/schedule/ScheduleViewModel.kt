@@ -9,6 +9,7 @@ import com.xingclass.app.R
 import com.xingclass.app.core.AppClock
 import com.xingclass.app.core.AppError
 import com.xingclass.app.core.AppResult
+import com.xingclass.app.domain.model.CourseCacheSnapshot
 import com.xingclass.app.domain.repository.CourseRepository
 import com.xingclass.app.ui.schedule.ScheduleUiState
 import com.xingclass.app.ui.util.UiText
@@ -39,16 +40,11 @@ class ScheduleViewModel(
         viewModelScope.launch {
             val cached = runCatching { courseRepository.getCachedCourses() }.getOrNull()
             if (cached != null) {
-                _state.update {
-                    it.copy(
-                        courses = cached.courses,
-                        lastSyncedAtMillis = cached.savedAtMillis,
-                        loading = false,
-                        fromCache = true,
-                    )
-                }
+                applySnapshot(cached, fromCache = true)
             }
-            refresh(manual = false)
+            // Online startup always opens the real current week. The cached week is only a
+            // fallback until this request succeeds (or permanently when offline).
+            launchRefresh(targetWeek = null, manual = false, switching = false)
         }
         viewModelScope.launch {
             while (true) {
@@ -63,37 +59,74 @@ class ScheduleViewModel(
         }
     }
 
+    /** Refreshes the week currently on screen. */
     fun refresh(manual: Boolean = false) {
-        if (refreshJob?.isActive == true) return
-        refreshJob = viewModelScope.launch { performRefresh(manual) }
+        launchRefresh(targetWeek = _state.value.week, manual = manual, switching = false)
     }
 
-    private suspend fun performRefresh(manual: Boolean) {
+    /** Switches to another teaching week and fetches it. */
+    fun selectWeek(week: Int) {
+        val current = _state.value
+        if (current.refreshing || current.switchingWeek) return
+        val maxWeek = current.maxWeek ?: return
+        val target = week.coerceIn(1, maxWeek)
+        if (target == current.week) return
+        launchRefresh(targetWeek = target, manual = false, switching = true)
+    }
+
+    /** Jumps back to the server's real current week (fetched without a week parameter). */
+    fun goToCurrentWeek() {
+        val current = _state.value
+        if (current.refreshing || current.switchingWeek || current.isCurrentWeek) return
+        launchRefresh(targetWeek = null, manual = false, switching = true)
+    }
+
+    fun toggleDay(day: Int) {
+        _state.update {
+            it.copy(selectedDay = if (it.selectedDay == day) null else day.coerceIn(0, 6))
+        }
+    }
+
+    fun openDay(day: Int) {
+        _state.update { it.copy(selectedDay = day.coerceIn(0, 6)) }
+    }
+
+    fun closeDay() {
+        _state.update { it.copy(selectedDay = null) }
+    }
+
+    fun dismissMessage() {
+        _state.update { it.copy(message = null) }
+    }
+
+    private fun launchRefresh(targetWeek: Int?, manual: Boolean, switching: Boolean) {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            performRefresh(targetWeek = targetWeek, manual = manual, switching = switching)
+        }
+    }
+
+    private suspend fun performRefresh(targetWeek: Int?, manual: Boolean, switching: Boolean) {
         _state.update {
             it.copy(
                 refreshing = true,
+                switchingWeek = switching,
                 error = null,
                 message = null,
+                selectedDay = if (switching) null else it.selectedDay,
             )
         }
 
-        when (val result = courseRepository.refreshCourses()) {
+        when (val result = courseRepository.refreshCourses(targetWeek)) {
             is AppResult.Success -> {
-                val snapshot = result.value
+                applySnapshot(result.value, fromCache = false)
                 _state.update {
                     it.copy(
-                        courses = snapshot.courses,
-                        lastSyncedAtMillis = snapshot.savedAtMillis,
-                        loading = false,
                         refreshing = false,
-                        fromCache = false,
+                        switchingWeek = false,
                         offline = false,
                         error = null,
-                        message = if (manual) {
-                            UiText.res(R.string.schedule_refresh_success)
-                        } else {
-                            null
-                        },
+                        message = if (manual) UiText.res(R.string.schedule_refresh_success) else null,
                     )
                 }
             }
@@ -103,6 +136,7 @@ class ScheduleViewModel(
                     _state.update {
                         it.copy(
                             refreshing = false,
+                            switchingWeek = false,
                             loading = false,
                             sessionExpired = true,
                         )
@@ -111,6 +145,23 @@ class ScheduleViewModel(
                 }
 
                 val networkError = result.error == AppError.Network
+                if (switching) {
+                    // Keep showing the previous week; only report that the switch failed.
+                    _state.update {
+                        it.copy(
+                            refreshing = false,
+                            switchingWeek = false,
+                            offline = networkError,
+                            message = if (networkError) {
+                                UiText.res(R.string.schedule_switch_week_offline)
+                            } else {
+                                UiText.res(R.string.schedule_switch_week_failed)
+                            },
+                        )
+                    }
+                    return
+                }
+
                 _state.update { current ->
                     val keepData = current.courses.isNotEmpty()
                     current.copy(
@@ -130,22 +181,18 @@ class ScheduleViewModel(
         }
     }
 
-    fun toggleDay(day: Int) {
+    private fun applySnapshot(snapshot: CourseCacheSnapshot, fromCache: Boolean) {
         _state.update {
-            it.copy(selectedDay = if (it.selectedDay == day) null else day.coerceIn(0, 6))
+            it.copy(
+                courses = snapshot.courses,
+                lastSyncedAtMillis = snapshot.savedAtMillis,
+                week = snapshot.week,
+                realCurrentWeek = snapshot.realCurrentWeek,
+                maxWeek = snapshot.maxWeek,
+                loading = false,
+                fromCache = fromCache,
+            )
         }
-    }
-
-    fun openDay(day: Int) {
-        _state.update { it.copy(selectedDay = day.coerceIn(0, 6)) }
-    }
-
-    fun closeDay() {
-        _state.update { it.copy(selectedDay = null) }
-    }
-
-    fun dismissMessage() {
-        _state.update { it.copy(message = null) }
     }
 
     companion object {

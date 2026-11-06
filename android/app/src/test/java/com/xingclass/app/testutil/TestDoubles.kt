@@ -7,9 +7,10 @@ import com.xingclass.app.data.remote.AuthStatus
 import com.xingclass.app.data.remote.ChaoxingApi
 import com.xingclass.app.data.remote.CookieStore
 import com.xingclass.app.data.remote.CourseRemoteDataSource
-import com.xingclass.app.data.remote.dto.ChaoxingLessonDto
+import com.xingclass.app.data.remote.dto.ChaoxingScheduleDto
 import com.xingclass.app.domain.model.Course
 import com.xingclass.app.domain.model.CourseCacheSnapshot
+import com.xingclass.app.domain.model.CourseWeek
 import com.xingclass.app.domain.model.SessionStatus
 import com.xingclass.app.domain.repository.AuthRepository
 import okhttp3.Cookie
@@ -28,12 +29,14 @@ class FixedAppClock(var current: LocalDateTime) : AppClock {
 }
 
 class FakeCourseRemote(
-    var result: AppResult<List<Course>>,
+    var result: AppResult<CourseWeek>,
 ) : CourseRemoteDataSource {
     var calls = 0
+    var lastWeek: Int? = null
 
-    override suspend fun fetchCourses(): AppResult<List<Course>> {
+    override suspend fun fetchCourses(week: Int?): AppResult<CourseWeek> {
         calls++
+        lastWeek = week
         return result
     }
 }
@@ -92,9 +95,11 @@ class FakeAuthRepository : AuthRepository {
 class FakeChaoxingApi : ChaoxingApi {
     var loginResult: AppResult<Unit> = AppResult.Success(Unit)
     var authStatusResult: AppResult<AuthStatus> = AppResult.Success(AuthStatus.VALID)
-    var lessonsResult: AppResult<List<ChaoxingLessonDto>> = AppResult.Success(emptyList())
+    var scheduleResult: AppResult<ChaoxingScheduleDto> =
+        AppResult.Success(ChaoxingScheduleDto(emptyList()))
     var lastAccount: String? = null
     var lastPassword: String? = null
+    var lastWeek: Int? = null
     var authStatusCalls = 0
 
     override suspend fun login(account: String, password: String): AppResult<Unit> {
@@ -108,8 +113,13 @@ class FakeChaoxingApi : ChaoxingApi {
         return authStatusResult
     }
 
-    override suspend fun getMyLessons(curTimeMillis: Long): AppResult<List<ChaoxingLessonDto>> =
-        lessonsResult
+    override suspend fun getMyLessons(
+        curTimeMillis: Long,
+        week: Int?,
+    ): AppResult<ChaoxingScheduleDto> {
+        lastWeek = week
+        return scheduleResult
+    }
 }
 
 class FakeCookieStore : CookieStore {

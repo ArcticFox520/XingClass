@@ -41,13 +41,22 @@ class CourseCacheStoreTest {
     fun `writes and reads a snapshot`() = runTest {
         val file = File(temporaryFolder.root, "cache.json")
         val store = FileCourseCacheStore(file, UnconfinedTestDispatcher(testScheduler))
-        val snapshot = CourseCacheSnapshot(listOf(course()), savedAtMillis = 123456L)
+        val snapshot = CourseCacheSnapshot(
+            courses = listOf(course()),
+            savedAtMillis = 123456L,
+            week = 9,
+            realCurrentWeek = 10,
+            maxWeek = 22,
+        )
 
         store.write(snapshot)
 
         assertTrue(file.exists())
         val restored = store.read()
         assertEquals(123456L, restored?.savedAtMillis)
+        assertEquals(9, restored?.week)
+        assertEquals(10, restored?.realCurrentWeek)
+        assertEquals(22, restored?.maxWeek)
         assertEquals(1, restored?.courses?.size)
         assertEquals("高等数学", restored?.courses?.single()?.title)
         assertEquals("A101", restored?.courses?.single()?.location)

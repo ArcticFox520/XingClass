@@ -36,12 +36,16 @@ class CourseRepositoryImpl(
         return snapshot
     }
 
-    override suspend fun refreshCourses(): AppResult<CourseCacheSnapshot> {
-        return when (val result = remote.fetchCourses()) {
+    override suspend fun refreshCourses(targetWeek: Int?): AppResult<CourseCacheSnapshot> {
+        return when (val result = remote.fetchCourses(targetWeek)) {
             is AppResult.Success -> {
+                val data = result.value
                 val snapshot = CourseCacheSnapshot(
-                    courses = result.value,
+                    courses = data.courses,
                     savedAtMillis = clock.nowMillis(),
+                    week = data.week,
+                    realCurrentWeek = data.realCurrentWeek,
+                    maxWeek = data.maxWeek,
                 )
                 runCatching { cache.write(snapshot) }
                     .onSuccess { logger.event(LogEvents.COURSE_CACHE_WRITTEN) }

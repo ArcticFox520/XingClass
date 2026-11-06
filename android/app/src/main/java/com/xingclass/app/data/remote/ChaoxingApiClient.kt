@@ -4,8 +4,8 @@ import com.xingclass.app.core.AppError
 import com.xingclass.app.core.AppResult
 import com.xingclass.app.core.LogEvents
 import com.xingclass.app.core.Logger
-import com.xingclass.app.data.remote.dto.ChaoxingLessonDto
 import com.xingclass.app.data.remote.dto.ChaoxingLessonParser
+import com.xingclass.app.data.remote.dto.ChaoxingScheduleDto
 import com.xingclass.app.data.remote.dto.LessonPayload
 import com.xingclass.app.security.ChaoxingCrypto
 import kotlinx.coroutines.Dispatchers
@@ -99,10 +99,18 @@ class ChaoxingApiClient(
         }
     }
 
-    override suspend fun getMyLessons(curTimeMillis: Long): AppResult<List<ChaoxingLessonDto>> {
-        val url = endpoints.myLessons.newBuilder()
+    override suspend fun getMyLessons(
+        curTimeMillis: Long,
+        week: Int?,
+    ): AppResult<ChaoxingScheduleDto> {
+        val urlBuilder = endpoints.myLessons.newBuilder()
             .addQueryParameter("curTime", curTimeMillis.toString())
-            .build()
+        if (week != null) {
+            // Verified 2026-11-06: "week" (1-based) is the real week selector. curTime does not
+            // change the returned week; it is only a timestamp/cache-buster.
+            urlBuilder.addQueryParameter("week", week.toString())
+        }
+        val url = urlBuilder.build()
         val request = baseRequest(url)
             .get()
             .header("Referer", "https://kb.chaoxing.com/")
@@ -130,7 +138,7 @@ class ChaoxingApiClient(
                     }
 
                     when (val payload = ChaoxingLessonParser.parse(body)) {
-                        is LessonPayload.Lessons -> AppResult.Success(payload.lessons)
+                        is LessonPayload.Lessons -> AppResult.Success(payload.schedule)
                         LessonPayload.InvalidPayload -> AppResult.Failure(AppError.CourseFetch)
                         LessonPayload.NoLessonContainer ->
                             if (authFailure) {

@@ -38,8 +38,19 @@ class FileCourseCacheStore(
         if (!file.isFile) return@withContext null
         try {
             val envelope = json.decodeFromString<CacheEnvelope>(file.readText())
+            if (envelope.version != CACHE_VERSION) {
+                runCatching { file.delete() }
+                return@withContext null
+            }
             val validCourses = envelope.courses.filter(::isPlausible)
-            CourseCacheSnapshot(courses = validCourses, savedAtMillis = envelope.savedAtMillis)
+            val maxWeek = envelope.maxWeek.coerceAtLeast(1)
+            CourseCacheSnapshot(
+                courses = validCourses,
+                savedAtMillis = envelope.savedAtMillis,
+                week = envelope.week.coerceIn(1, maxWeek),
+                realCurrentWeek = envelope.realCurrentWeek.coerceIn(1, maxWeek),
+                maxWeek = maxWeek,
+            )
         } catch (t: Throwable) {
             runCatching { file.delete() }
             null
@@ -53,6 +64,9 @@ class FileCourseCacheStore(
                 version = CACHE_VERSION,
                 savedAtMillis = snapshot.savedAtMillis,
                 courses = snapshot.courses,
+                week = snapshot.week,
+                realCurrentWeek = snapshot.realCurrentWeek,
+                maxWeek = snapshot.maxWeek,
             ),
         )
         val temporary = File(file.parentFile, "${file.name}.tmp")
@@ -83,9 +97,13 @@ class FileCourseCacheStore(
         val version: Int,
         val savedAtMillis: Long,
         val courses: List<Course>,
+        val week: Int = 1,
+        val realCurrentWeek: Int = 1,
+        val maxWeek: Int = 1,
     )
 
     private companion object {
-        const val CACHE_VERSION = 1
+        /** v2 added the week / realCurrentWeek / maxWeek metadata. Older caches are discarded. */
+        const val CACHE_VERSION = 2
     }
 }

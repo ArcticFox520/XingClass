@@ -18,7 +18,12 @@ XingClass 是一个面向学生的**超星课程表 Android 客户端**。它不
 - 拉取课程 → 映射为统一 `Course` 模型 → 本地 JSON 缓存
 - **Cache First + Remote Refresh**：先展示缓存，再后台刷新；刷新失败保留旧课表
 - 一屏 7×10 课表：无主滚动、10 节均分、课程跨节、星期定位、今日高亮
-- 单日课程抽屉（点击星期 Tab 或任意课程打开）
+- **周次切换**：上一周 / 下一周 / 回到本周，使用已验证的 `week` 参数；
+  “正在查看的周”与“真实本周”分离，切换失败保留当前周
+- 课程卡按实际可用高度自适应：标题优先，空间足够时显示**楼栋与教室两行**，
+  不再因为跨节数或固定阈值隐藏地点
+- 统一新拟物光影：加深外凸/内凹双阴影，按压 300ms 由外凸变内凹（无位移）
+- 单日课程抽屉（点击星期 Tab 或任意课程打开；楼栋、教室、教师分行）
 - 自动 / 白天 / 黑夜三态主题（自动模式 08:00–22:00 为白天，每分钟检查一次）
 - 设置页：主题、账号（脱敏）、最近同步时间、清除缓存、退出登录
 - 空 / 加载 / 缓存 / 刷新中 / 成功 / 失败 / 离线全部页面状态
@@ -103,6 +108,7 @@ cd android
 - `CourseRepositoryImplTest`：远程成功/失败、缓存命中/保留、会话失效
 - `AuthRepositoryImplTest`：登录、账号保存、Session 状态机
 - `AutoThemeTest` / `AccountMaskTest` / `CourseCacheStoreTest`
+- `CourseCardLayoutTest` / `LocationTextTest` / `DateLabelsTest` / `ScheduleUiStateTest`
 - `LiveChaoxingApiTest`：**opt-in 实网集成测试**，默认跳过；使用真实 `ChaoxingApiClient`
   完成登录 → Cookie 会话 → 拉取课表 → 映射网格，断言解析数 == 映射数。
 
@@ -154,13 +160,13 @@ workflow 会在 Summary 中给出警告。详见 [docs/SECURITY.md](docs/SECURIT
 | 命令 | 结果 |
 |---|---|
 | `./gradlew lint` | **PASS**（0 issues） |
-| `./gradlew test` | **PASS**（88 tests，0 failures；1 个 opt-in 实网测试默认跳过） |
+| `./gradlew test` | **PASS**（113 tests，0 failures；1 个 opt-in 实网测试默认跳过） |
 | `./gradlew assembleDebug` | **PASS** |
 | `./gradlew assembleRelease` | **PASS** |
 
 | 产物 | 大小 | ABI | 签名 |
 |---|---|---|---|
-| `XingClass-arm64-v8a-debug.apk` | ~11 MB | `native-code: arm64-v8a` | debug |
+| `XingClass-arm64-v8a-debug.apk` | ~12 MB | `native-code: arm64-v8a` | debug |
 | `XingClass-arm64-v8a-release.apk` | ~1.3 MB | `native-code: arm64-v8a` | debug（未配置 Release Secrets） |
 
 APK 内唯一的原生库是 `lib/arm64-v8a/libandroidx.graphics.path.so`（Compose 依赖），
@@ -178,7 +184,8 @@ APK 内唯一的原生库是 `lib/arm64-v8a/libandroidx.graphics.path.so`（Comp
 | `getauthstatus/v2` | **登录有效时仍返回“参数为空”**，确认不能用于正向判定会话 |
 | `getMyLessons` 真实响应 | 200 JSON，结构为 `data.lessonArray`，共 14 条 |
 | 真实课程 → 网格映射 | 14/14 全部映射，无丢失（`LiveChaoxingApiTest`） |
-| 真实结构回归样本 | 已脱敏后加入单元测试，锁定 `lessonArray`/`dayOfWeek`/`beginNumber`/`length` |
+| **周次切换** | `week=9` → 16 条（10-26..11-01）、`week=11` → 14 条（11-09..11-14）；课程 `weeks` 与目标周一致，`currentWeek` 仍为真实本周 |
+| 真实结构回归样本 | 已脱敏后加入单元测试，锁定 `lessonArray`/`dayOfWeek`/`beginNumber`/`length`/`weeks` |
 
 > 环境没有 `/dev/kvm`，无法运行 Android 模拟器，因此没有执行 instrumented / Compose UI 测试，
 > 也没有真机视觉验收。实网验证覆盖了成功路径；错误密码、验证码、会话过期等服务端失败分支
@@ -188,7 +195,6 @@ APK 内唯一的原生库是 `lib/arm64-v8a/libandroidx.graphics.path.so`（Comp
 
 - 真实接口的成功路径已验证；错误密码、验证码、双因子、会话过期等失败分支未主动触发，
   仍标记 `UNVERIFIED`，代码采用防御性处理（详见 [docs/API.md](docs/API.md)）。
-- `getMyLessons` 返回的是 `curTime` 所在周的课程实例，MVP 不提供周次切换。
 - 接口已返回节次时间（`lessonTimeConfigArray`），但按移动端 UI 规范只在主课表显示节数，
   未展示具体时钟时间。
 - 未做国际化：当前仅简体中文。

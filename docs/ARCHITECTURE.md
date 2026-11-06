@@ -85,6 +85,32 @@ App 启动
 `getauthstatus/v2` 仍返回 `{"mes":"参数为空","status":false}`。因此不能据此清会话；
 宁可进入课表由课程请求再判定，也不错误地把用户登出。
 
+## 3.1 周次切换
+
+```text
+用户点击上一周 / 下一周 / 回到本周
+      ↓
+ScheduleViewModel.selectWeek(target) / goToCurrentWeek()
+      ↓
+CourseRepository.refreshCourses(targetWeek)
+      ↓
+ChaoxingApiClient.getMyLessons(curTime, week = targetWeek)
+      ↓
+服务端返回该周 lessonArray；currentWeek 仍是真实本周
+      ↓
+CourseWeek(week=选中周, realCurrentWeek=真实本周, maxWeek=最大周)
+      ↓
+缓存（v2 含周次元数据）+ UI 更新
+```
+
+- `curTime` 只是时间戳，不控制周次；真正的周次参数是 `week`（1 基）。
+- 服务端返回的 `currentWeek` 永远是真实本周，因此“选中周”必须由客户端记录，
+  不能从响应里的 `currentWeek` 反推。
+- 切换失败时保留当前周的课表，只弹提示；不会把旧周数据清空。
+- `week` 范围 1..`maxWeek`；服务端对越界周返回空数组，客户端仍主动夹取。
+- 启动时先显示缓存（可能是上次查看的周），随后用 `week=null` 拉取真实本周。
+- 查看非本周时隐藏“今日”高亮；星期 Tab 的日期随选中周平移。
+
 ## 4. 数据流
 
 ```text
@@ -102,7 +128,8 @@ UI 永远不直接使用超星 JSON。解析器的容错策略与未验证字段
 ## 5. 缓存
 
 - 位置：`filesDir/course-cache.json`（私有目录，非敏感数据）
-- 结构：`{version, savedAtMillis, courses[]}`
+- 结构：`{version, savedAtMillis, courses[], week, realCurrentWeek, maxWeek}`（version=2）
+- 周次元数据用于离线时继续显示“上次查看的周”，并在恢复网络后回到真实本周
 - 写入：临时文件 + rename，避免进程中断产生半个缓存
 - 读取：反序列化失败或课程越界 → 视为 cache miss 并删除坏文件
 - 失败策略：远程失败**绝不**清空缓存；只有明确“成功且为空”才缓存空列表
@@ -149,10 +176,11 @@ UI 永远不直接使用超星 JSON。解析器的容错策略与未验证字段
 
 ## 9. 测试策略
 
-- 纯逻辑（Crypto、Parser、Mapper、Layout、AutoTheme、Mask）→ 快速 JVM 单元测试
+- 纯逻辑（Crypto、Parser、Mapper、Layout、AutoTheme、Mask、Week/日期、地点拆分）→ 快速 JVM 单元测试
 - 真实结构回归：把 2026-11-06 实网响应脱敏后固化进 `ChaoxingLessonParserTest`
 - 实网集成：`LiveChaoxingApiTest` 默认跳过，凭据仅通过环境变量注入
 - HTTP 行为 → MockWebServer 验证请求方法/表单/加密/Cookie 回放/错误映射
 - Repository → 假远端 + 假缓存，覆盖成功、失败、缓存回退、会话失效
 - 缓存 → JUnit TemporaryFolder 验证原子写、坏文件清理
+- 当前共 113 个 JVM 测试（1 个 opt-in 实网测试默认跳过）；实网测试已覆盖周次切换
 - 未做 instrumented/UI 测试（构建环境无 KVM，无法启动模拟器），在 README 与最终报告中注明

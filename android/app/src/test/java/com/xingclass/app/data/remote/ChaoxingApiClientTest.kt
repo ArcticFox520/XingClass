@@ -139,14 +139,35 @@ class ChaoxingApiClientTest {
             ),
         )
 
-        val result = client.getMyLessons(1793946884693L)
+        val result = client.getMyLessons(1793946884693L, null)
 
-        val lessons = (result as AppResult.Success).value
+        val lessons = (result as AppResult.Success).value.lessons
         assertEquals(1, lessons.size)
         assertEquals("高等数学", lessons.single().title)
 
         val request = server.takeRequest()
         assertEquals("/pc/curriculum/getMyLessons?curTime=1793946884693", request.path)
+    }
+
+    @Test
+    fun `week query parameter selects the teaching week and metadata is parsed`() = runTest {
+        server.enqueue(
+            json(
+                """{"data":{"curriculum":{"currentWeek":10,"realCurrentWeek":10,"maxWeek":22},
+                   "lessonArray":[{"name":"示例课程","dayOfWeek":1,"beginNumber":1,"length":2}]}}""",
+            ),
+        )
+
+        val result = client.getMyLessons(123L, 9)
+
+        val schedule = (result as AppResult.Success).value
+        assertEquals(1, schedule.lessons.size)
+        assertEquals(10, schedule.currentWeek)
+        assertEquals(10, schedule.realCurrentWeek)
+        assertEquals(22, schedule.maxWeek)
+
+        val request = server.takeRequest()
+        assertEquals("/pc/curriculum/getMyLessons?curTime=123&week=9", request.path)
     }
 
     @Test
@@ -158,7 +179,7 @@ class ChaoxingApiClientTest {
                 .setBody("<!DOCTYPE html><html><body>请登录</body></html>"),
         )
 
-        val result = client.getMyLessons(1L)
+        val result = client.getMyLessons(1L, null)
 
         assertEquals(AppError.SessionExpired, (result as AppResult.Failure).error)
     }
@@ -167,7 +188,7 @@ class ChaoxingApiClientTest {
     fun `http 401 is treated as an expired session`() = runTest {
         server.enqueue(MockResponse().setResponseCode(401))
 
-        val result = client.getMyLessons(1L)
+        val result = client.getMyLessons(1L, null)
 
         assertEquals(AppError.SessionExpired, (result as AppResult.Failure).error)
     }
@@ -176,7 +197,7 @@ class ChaoxingApiClientTest {
     fun `no lesson container is a course fetch failure`() = runTest {
         server.enqueue(json("""{"status":200,"data":{"unexpected":true}}"""))
 
-        val result = client.getMyLessons(1L)
+        val result = client.getMyLessons(1L, null)
 
         assertEquals(AppError.CourseFetch, (result as AppResult.Failure).error)
     }
@@ -196,7 +217,7 @@ class ChaoxingApiClientTest {
         assertTrue(cookieJar.hasCookies())
 
         server.enqueue(json("""{"status":200,"data":[]}"""))
-        client.getMyLessons(1L)
+        client.getMyLessons(1L, null)
 
         server.takeRequest() // login
         val lessonsRequest = server.takeRequest()

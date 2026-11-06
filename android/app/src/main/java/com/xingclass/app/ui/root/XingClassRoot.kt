@@ -137,6 +137,8 @@ private fun ScheduleRoute(
         themeMode = rootState.themeMode,
         onCycleTheme = rootViewModel::cycleThemeMode,
         onRefresh = { viewModel.refresh(manual = true) },
+        onSelectWeek = viewModel::selectWeek,
+        onGoToCurrentWeek = viewModel::goToCurrentWeek,
         onDayTabClick = viewModel::toggleDay,
         onCourseClick = { course -> viewModel.openDay(course.day) },
         onCloseDay = viewModel::closeDay,

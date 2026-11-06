@@ -22,6 +22,16 @@
 | Inset | 内凹环：暗偏移进入左上内缘，亮偏移进入右下内缘 | 外轮廓 − 内缩轮廓 = 环，带 shadow layer 并裁剪 |
 | Pressed | Raised 阴影淡出、Inset 淡入，**无 translate** | `pressProgress` 0→1，300ms |
 
+阴影档位（2026-11 加强凹凸感后的值）：
+
+| 档位 | offset | blur | inset depth |
+|---|---|---|---|
+| SMALL | 4dp | 9dp | 4dp |
+| MEDIUM | 7dp | 14dp | 7dp |
+| LARGE | 10dp | 22dp | 10dp |
+
+深色模式同步加强：亮阴影 `#434D5A`，暗阴影 `#15191F`，避免深色下“糊成一片”。
+
 统一入口：
 
 - `Modifier.neumorphic(shape, style, backgroundColor, lightShadow, darkShadow, elevation, pressProgress, shadowScale)`
@@ -35,8 +45,8 @@
 | Token | Light | Dark |
 |---|---|---|
 | background / surface | `#E0E5EC` | `#2B3038` |
-| lightShadow | `#FFFFFF` | `#38404B` |
-| darkShadow | `#B8BEC7` | `#1E2228` |
+| lightShadow | `#FFFFFF` | `#434D5A` |
+| darkShadow | `#A6ADB8` | `#15191F` |
 | textPrimary | `#39414F` | `#E3E8EF` |
 | textSecondary | `#586172` | `#A3ADBB` |
 | accent | `#5949D2` | `#9B90FF` |
@@ -90,7 +100,7 @@
 
 ## 6. 主课表布局
 
-- 根：`Column`，标题栏与星期栏高度固定，网格行 `weight(1f)` 占满剩余高度
+- 根：`Column`，标题栏、周次栏、星期栏高度固定，网格行 `weight(1f)` 占满剩余高度
 - 网格：**自定义 `Layout`**，测量高度均分 10 行、宽度均分 7 列
 - 课程位置完全由 `day/start/span` 计算（`ScheduleLayoutCalculator`，纯 Kotlin，已单测）
 - 真实接口的 `curriculum.lessonTimeConfigArray` 已提供节次时钟时间，但按本指南“移动端只留节数”
@@ -98,12 +108,27 @@
 - 不使用 `LazyColumn` / `LazyRow` / `verticalScroll` 作为主课表容器
 - 重叠课程自动分列（贪心区间着色），不会互相覆盖
 - 卡片高度由跨节数决定，文字行数根据实际测量高度动态限制，长课程名不会撑破网格
+- 网格内边距 8dp，抽屉内凹槽内边距 10dp，为加强后的卡片阴影留出空间
+
+## 6.1 周次切换
+
+- Header 下方是 34dp 的 `WeekSwitcher`：`‹ 第 N 周 ›`，非本周额外显示“回到本周”。
+- 服务端 `week` 参数控制周次；`currentWeek` 永远是真实本周，所以 UI 状态区分
+  `week`（选中）/ `realCurrentWeek`（本周）/ `maxWeek`。
+- 切换中禁用箭头，状态徽标显示“同步中”；失败保留当前周并弹提示，不把旧课表清空。
+- 查看非本周时：星期 Tab 的日期整体平移，隐藏“今天”圆点与今日列着色。
+- 抽屉、日期、课表共用同一组选中周日期。
+- 新增高度约 40dp，通过压缩间距保留一屏 10 节均分。
 
 ## 7. 文本截断
 
-- 课程卡标题：`maxLines = 动态(1..4)`，`overflow = Ellipsis`
-- 课程卡地点：`maxLines = 1`，`Ellipsis`；跨节 ≥ 2 且卡片高度足够才显示
-- 抽屉课程：标题、地点/教师均 `maxLines = 1` + `Ellipsis`，右侧内容 `weight(1f)`
+- 课程卡标题：`maxLines = 动态(1..5)`，`overflow = Ellipsis`
+- 课程卡地点：按**实测高度与实际行高（含 fontScale）**决定显示：
+  - 空间足够：楼栋一行 + 教室一行（`parseLocation("示例楼C201")` → 示例楼 / C201）；
+  - 只够一行：显示完整地点（省略号）；
+  - 完全不够：隐藏地点，但至少保留 1 行标题。
+  不再用“跨节 ≥ 2”之类与空间无关的阈值隐藏地点。
+- 抽屉课程：标题、楼栋、教室、教师各占一行，均为 `maxLines = 1` + `Ellipsis`，右侧内容 `weight(1f)`
 - 抽屉左列固定 46dp；不使用会撑破容器的可伸缩列
 - 任何文字都不贴边：卡片内边距 4dp/3dp，抽屉行 12dp/11dp
 
