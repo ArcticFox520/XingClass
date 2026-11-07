@@ -8,6 +8,7 @@ import com.xingclass.app.data.remote.dto.ChaoxingLessonParser
 import com.xingclass.app.data.remote.dto.ChaoxingScheduleDto
 import com.xingclass.app.data.remote.dto.LessonPayload
 import com.xingclass.app.security.ChaoxingCrypto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -42,14 +43,21 @@ class ChaoxingApiClient(
     private val logger: Logger,
     private val endpoints: ChaoxingEndpoints = ChaoxingEndpoints(),
     private val json: Json = Json { ignoreUnknownKeys = true; isLenient = true },
+    /**
+     * Supplies the current Chaoxing AES key at login time. The default keeps every non-settings
+     * caller (and the unit tests) working; the app container feeds it from Settings so a
+     * user-changed key takes effect on the next login without restarting the app.
+     */
+    private val cryptoKeyProvider: () -> String = { ChaoxingCrypto.KEY },
 ) : ChaoxingApi {
 
     override suspend fun login(account: String, password: String): AppResult<Unit> {
         logger.event(LogEvents.LOGIN_REQUEST_STARTED)
 
         val result = try {
+            val cryptoKey = cryptoKeyProvider()
             val request = baseRequest(endpoints.login)
-                .post(loginForm(account, password))
+                .post(loginForm(account, password, cryptoKey))
                 .header("Referer", "https://passport2.chaoxing.com/login?fid=&refer=")
                 .build()
 
@@ -66,6 +74,8 @@ class ChaoxingApiClient(
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             // Encryption / form building problems are not user-caused; do not leak details.
             AppResult.Failure(AppError.Unknown, e)
@@ -106,8 +116,8 @@ class ChaoxingApiClient(
         val urlBuilder = endpoints.myLessons.newBuilder()
             .addQueryParameter("curTime", curTimeMillis.toString())
         if (week != null) {
-            // Verified 2026-11-06: "week" (1-based) is the real week selector. curTime does not
-            // change the returned week; it is only a timestamp/cache-buster.
+            // "week" (1-based) is the real week selector. curTime does not change the returned
+            // week; it is only a timestamp/cache-buster.
             urlBuilder.addQueryParameter("week", week.toString())
         }
         val url = urlBuilder.build()
@@ -158,6 +168,8 @@ class ChaoxingApiClient(
     ): AppResult<T> = withContext(Dispatchers.IO) {
         try {
             client.newCall(request).execute().use(block)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: IOException) {
             AppResult.Failure(AppError.Network, e)
         } catch (e: Exception) {
@@ -170,11 +182,11 @@ class ChaoxingApiClient(
      * Chaoxing login page sends the explicit charset variant, so the encoded form is re-wrapped
      * with the exact media type.
      */
-    private fun loginForm(account: String, password: String): RequestBody {
+    private fun loginForm(account: String, password: String, cryptoKey: String): RequestBody {
         val form = FormBody.Builder()
             .add("fid", "-1")
-            .add("uname", ChaoxingCrypto.encrypt(account))
-            .add("password", ChaoxingCrypto.encrypt(password))
+            .add("uname", ChaoxingCrypto.encrypt(account, cryptoKey))
+            .add("password", ChaoxingCrypto.encrypt(password, cryptoKey))
             .add("refer", REFER)
             .add("t", "true")
             .add("forbidotherlogin", "0")
@@ -250,7 +262,7 @@ class ChaoxingApiClient(
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403
 
-        /** Recruiting endpoint parameter captured in the Chaoxing login flow. */
+        /** Value submitted in the login form's `refer` field. */
         const val REFER = "https://www.chaoxing.com/"
 
         val FORM_MEDIA_TYPE = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
@@ -264,7 +276,8 @@ class ChaoxingApiClient(
                 "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
         val AUTH_FAILURE_MARKERS = listOf(
-            "未登录", "登录失效", "登录已失效", "请登录", "重新登录", "会话", "过期", "没有权限", "无权限",
+            "未登录", "登录失效", "登录已失效", "登录过期", "会话过期", "会话已过期",
+            "请登录", "重新登录", "没有权限", "无权限",
         )
     }
 }

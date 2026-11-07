@@ -7,7 +7,7 @@ import com.xingclass.app.BuildConfig
  * Deliberately minimal logging facade.
  *
  * SECURITY: only fixed event names and exception *types* may be logged. Never log accounts,
- * passwords, cookies, tokens, full URLs or response bodies. See docs/SECURITY.md.
+ * passwords, cookies, tokens, full URLs or response bodies. See the Security section in README.md.
  */
 interface Logger {
     fun event(name: String)

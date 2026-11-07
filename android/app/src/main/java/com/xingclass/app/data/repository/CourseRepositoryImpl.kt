@@ -10,6 +10,7 @@ import com.xingclass.app.data.remote.CourseRemoteDataSource
 import com.xingclass.app.domain.model.CourseCacheSnapshot
 import com.xingclass.app.domain.repository.AuthRepository
 import com.xingclass.app.domain.repository.CourseRepository
+import kotlinx.coroutines.CancellationException
 
 /**
  * Cache-first schedule repository.
@@ -48,9 +49,14 @@ class CourseRepositoryImpl(
                     maxWeek = data.maxWeek,
                     lessonTimes = data.lessonTimes,
                 )
-                runCatching { cache.write(snapshot) }
-                    .onSuccess { logger.event(LogEvents.COURSE_CACHE_WRITTEN) }
-                    .onFailure { logger.failure(LogEvents.COURSE_FETCH_FAILED, it) }
+                try {
+                    cache.write(snapshot)
+                    logger.event(LogEvents.COURSE_CACHE_WRITTEN)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    logger.failure(LogEvents.COURSE_FETCH_FAILED, e)
+                }
                 logger.event(
                     LogEvents.COURSE_FETCH_SUCCESS,
                     "week=${snapshot.week} count=${snapshot.courses.size}",
@@ -68,8 +74,13 @@ class CourseRepositoryImpl(
     }
 
     override suspend fun clearCourses() {
-        runCatching { cache.clear() }
-            .onFailure { logger.failure(LogEvents.COURSE_CACHE_CLEARED, it) }
-        logger.event(LogEvents.COURSE_CACHE_CLEARED)
+        try {
+            cache.clear()
+            logger.event(LogEvents.COURSE_CACHE_CLEARED)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.failure(LogEvents.COURSE_CACHE_CLEARED, e)
+        }
     }
 }

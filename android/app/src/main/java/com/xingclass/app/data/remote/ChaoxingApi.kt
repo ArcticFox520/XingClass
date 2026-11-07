@@ -10,7 +10,7 @@ interface ChaoxingApi {
     suspend fun getAuthStatus(): AppResult<AuthStatus>
 
     /**
-     * @param week 1-based teaching week. Verified 2026-11-06: the server switches the returned
+     * @param week 1-based teaching week. The server switches the returned
      *   `lessonArray` to this week (the response's currentWeek still reports the real week).
      *   Null asks for the real current week.
      */

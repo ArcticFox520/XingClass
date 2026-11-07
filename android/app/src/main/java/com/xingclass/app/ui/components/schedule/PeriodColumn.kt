@@ -18,16 +18,17 @@ import com.xingclass.app.ui.components.neumorphic.NeumorphicSurface
 import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingClassType
 import com.xingclass.app.ui.theme.XingRadii
+import com.xingclass.app.domain.model.GridSpec
 import com.xingclass.app.domain.model.PeriodTime
 
 /**
- * Left hand period rail: ten independent raised blocks, one per period (see the three-layer
- * nesting rule in the UI guide). No scrolling: every block gets 1/10 of the available height.
+ * Left hand period rail: ten independent raised blocks, one per period (three-layer nesting
+ * rule). No scrolling: every block gets 1/10 of the available height.
  */
 @Composable
 fun PeriodColumn(
     modifier: Modifier = Modifier,
-    periodCount: Int = 10,
+    periodCount: Int = GridSpec.PERIODS,
     times: List<PeriodTime?> = emptyList(),
 ) {
     val colors = LocalNeumorphicColors.current

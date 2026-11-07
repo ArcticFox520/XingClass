@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">XingClass</string>
+    <string name="brand_letter" translatable="false">X</string>
 
     <!-- Login -->
     <string name="login_subtitle">超星课表 · 一屏全览</string>
@@ -14,6 +15,7 @@
     <string name="login_session_expired">登录状态已失效，请重新登录</string>
     <string name="login_error_account_required">请输入账号</string>
     <string name="login_error_password_required">请输入密码</string>
+    <string name="login_key_entry">登录密钥</string>
 
     <!-- Errors -->
     <string name="error_network">网络不可用，请检查网络连接</string>
@@ -55,6 +57,7 @@
     <string name="day_drawer_empty_title">这一天没有课</string>
     <string name="day_drawer_section_count">共 %1$d 节</string>
     <string name="course_location_unknown">地点未提供</string>
+    <string name="course_time_unknown" translatable="false">—</string>
 
     <!-- Settings -->
     <string name="settings_title">设置</string>
@@ -70,6 +73,14 @@
     <string name="settings_logout_message">退出后将清除本机登录状态与课表缓存，需要重新输入账号密码。</string>
     <string name="settings_logout_confirm">退出</string>
     <string name="settings_cancel">取消</string>
+    <string name="settings_section_login_key">登录密钥</string>
+    <string name="settings_key_placeholder">16 个字符</string>
+    <string name="settings_key_hint">修改后下次登录生效</string>
+    <string name="settings_key_invalid">密钥必须为 16 个字符</string>
+    <string name="settings_key_saved">密钥已保存，下次登录生效</string>
+    <string name="settings_key_reset">已恢复默认密钥</string>
+    <string name="settings_key_save">保存</string>
+    <string name="settings_key_restore">恢复默认</string>
     <string name="settings_section_data">数据</string>
     <string name="settings_last_sync">最近同步：%1$s</string>
     <string name="settings_never_synced">尚未同步</string>
@@ -83,6 +94,8 @@
     <string name="settings_section_about">关于</string>
     <string name="settings_version">版本 %1$s</string>
     <string name="settings_arch_note">Android 8.0+ · arm64-v8a</string>
+    <string name="settings_author_link">作者主页</string>
+    <string name="settings_link_failed">无法打开链接</string>
 
     <!-- Weekdays -->
     <string name="weekday_short_1">一</string>

@@ -3,7 +3,7 @@ package com.xingclass.app.security
 /**
  * Local account hint. The password is intentionally never persisted: it only lives in the
  * ViewModel for the duration of the login request, and the session itself is represented by
- * the cookie jar. See docs/SECURITY.md.
+ * the cookie jar. See the Security section in README.md.
  */
 class CredentialStore(private val storage: SecureStorage) {
 

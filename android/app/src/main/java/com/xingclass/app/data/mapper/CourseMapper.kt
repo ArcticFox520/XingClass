@@ -3,14 +3,15 @@ package com.xingclass.app.data.mapper
 import com.xingclass.app.data.remote.dto.ChaoxingLessonDto
 import com.xingclass.app.domain.model.Course
 import com.xingclass.app.domain.model.CourseColor
+import com.xingclass.app.domain.model.GridSpec
 
 /**
  * Chaoxing DTO -> internal [Course] model.
  *
  * Rules:
  *  - title is mandatory; everything else has a documented fallback.
- *  - day must resolve to 0..6 and start to 1..10, otherwise the entry is dropped (never
- *    silently moved to a different slot).
+ *  - day must resolve to a valid weekday and start to a valid period, otherwise the entry is
+ *    dropped (never silently moved to a different slot).
  *  - span is clamped so a lesson can never overflow the 10-period grid.
  *  - colour is derived from the course title, so the same course keeps its colour across
  *    refreshes and devices.
@@ -33,14 +34,14 @@ class CourseMapper {
         val parsed = CourseTimeParser.parse(dto.timeText)
         val day = dto.dayIndex ?: parsed.day ?: return null
         val start = dto.start ?: parsed.start ?: return null
-        if (day !in 0..6 || start !in 1..10) return null
+        if (day !in 0 until GridSpec.DAYS || start !in 1..GridSpec.PERIODS) return null
 
         val span = when {
             dto.span != null && dto.span > 0 -> dto.span
             dto.end != null && dto.end >= start -> dto.end - start + 1
             parsed.span != null -> parsed.span
             else -> 1
-        }.coerceIn(1, MAX_PERIODS - start + 1)
+        }.coerceIn(1, GridSpec.PERIODS - start + 1)
 
         val sourceId = dto.id?.trim()?.takeIf { it.isNotEmpty() }
         val id = occurrenceId(sourceId, title, day, start, span)
@@ -90,6 +91,6 @@ class CourseMapper {
     }
 
     companion object {
-        const val MAX_PERIODS = 10
+        const val MAX_PERIODS = GridSpec.PERIODS
     }
 }

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.xingclass.app.R
 import com.xingclass.app.core.AppResult
+import com.xingclass.app.domain.model.ChaoxingKey
 import com.xingclass.app.domain.model.ExportDocument
 import com.xingclass.app.domain.model.ThemeMode
 import com.xingclass.app.domain.repository.AuthRepository
@@ -15,6 +16,7 @@ import com.xingclass.app.domain.repository.DiagnosticsRepository
 import com.xingclass.app.domain.repository.SettingsRepository
 import com.xingclass.app.ui.util.UiText
 import com.xingclass.app.ui.util.maskAccount
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +28,8 @@ data class SettingsUiState(
     val maskedAccount: String? = null,
     val lastSyncedAtMillis: Long? = null,
     val versionName: String = "",
+    val cryptoKey: String = ChaoxingKey.DEFAULT,
+    val cryptoKeyDraft: String = ChaoxingKey.DEFAULT,
     val message: UiText? = null,
     val loggingOut: Boolean = false,
     val exportDocument: ExportDocument? = null,
@@ -44,6 +48,8 @@ class SettingsViewModel(
             themeMode = settingsRepository.themeMode.value,
             maskedAccount = authRepository.savedAccount()?.let(::maskAccount),
             versionName = versionName,
+            cryptoKey = settingsRepository.cryptoKey.value,
+            cryptoKeyDraft = settingsRepository.cryptoKey.value,
         ),
     )
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -55,7 +61,13 @@ class SettingsViewModel(
             }
         }
         viewModelScope.launch {
-            val cached = runCatching { courseRepository.getCachedCourses() }.getOrNull()
+            val cached = try {
+                courseRepository.getCachedCourses()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                null
+            }
             if (cached != null) {
                 _state.update { it.copy(lastSyncedAtMillis = cached.savedAtMillis) }
             }
@@ -64,6 +76,38 @@ class SettingsViewModel(
 
     fun setThemeMode(mode: ThemeMode) {
         settingsRepository.setThemeMode(mode)
+    }
+
+    fun onCryptoKeyChange(value: String) {
+        _state.update { it.copy(cryptoKeyDraft = value) }
+    }
+
+    fun saveCryptoKey() {
+        val draft = _state.value.cryptoKeyDraft
+        if (!ChaoxingKey.isValid(draft) || !settingsRepository.setCryptoKey(draft)) {
+            _state.update { it.copy(message = UiText.res(R.string.settings_key_invalid)) }
+            return
+        }
+        val stored = settingsRepository.cryptoKey.value
+        _state.update {
+            it.copy(
+                cryptoKey = stored,
+                cryptoKeyDraft = stored,
+                message = UiText.res(R.string.settings_key_saved),
+            )
+        }
+    }
+
+    fun resetCryptoKey() {
+        settingsRepository.setCryptoKey(ChaoxingKey.DEFAULT)
+        val stored = settingsRepository.cryptoKey.value
+        _state.update {
+            it.copy(
+                cryptoKey = stored,
+                cryptoKeyDraft = stored,
+                message = UiText.res(R.string.settings_key_reset),
+            )
+        }
     }
 
     fun clearCache() {
@@ -119,7 +163,13 @@ class SettingsViewModel(
         _state.update { it.copy(loggingOut = true) }
         viewModelScope.launch {
             authRepository.logout()
-            runCatching { courseRepository.clearCourses() }
+            try {
+                courseRepository.clearCourses()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // Logout must still complete when the cache cannot be cleared.
+            }
             _state.update { it.copy(loggingOut = false) }
             onLoggedOut()
         }

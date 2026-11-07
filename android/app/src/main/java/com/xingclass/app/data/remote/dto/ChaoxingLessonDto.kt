@@ -3,9 +3,9 @@ package com.xingclass.app.data.remote.dto
 /**
  * Normalized view of one Chaoxing lesson entry.
  *
- * The real lesson payload of `getMyLessons` is not fully documented (see docs/API.md, section
- * "UNVERIFIED"). The parser therefore accepts several field aliases and this DTO keeps both
- * numeric section data and the raw time text so the mapper can fall back to text parsing.
+ * The real lesson payload of `getMyLessons` is documented in docs/API.md, but the parser still
+ * accepts several field aliases for resilience. This DTO keeps both numeric section data and the
+ * raw time text so the mapper can fall back to text parsing.
  */
 data class ChaoxingLessonDto(
     val id: String? = null,

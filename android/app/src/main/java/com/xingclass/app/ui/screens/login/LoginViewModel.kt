@@ -7,7 +7,9 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.xingclass.app.R
 import com.xingclass.app.core.AppResult
+import com.xingclass.app.domain.model.ChaoxingKey
 import com.xingclass.app.domain.repository.AuthRepository
+import com.xingclass.app.domain.repository.SettingsRepository
 import com.xingclass.app.ui.util.UiText
 import com.xingclass.app.ui.util.toUiText
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,7 @@ data class LoginUiState(
 
 class LoginViewModel(
     private val authRepository: AuthRepository,
+    private val settingsRepository: SettingsRepository,
     initialAccount: String,
 ) : ViewModel() {
 
@@ -43,6 +46,18 @@ class LoginViewModel(
 
     fun togglePasswordVisibility() {
         _state.update { it.copy(passwordVisible = !it.passwordVisible) }
+    }
+
+    /**
+     * The settings page is only reachable after login, so the login screen needs its own
+     * read/write path: otherwise a rotated or mistyped key would lock the user out permanently.
+     */
+    fun currentCryptoKey(): String = settingsRepository.cryptoKey.value
+
+    fun saveCryptoKey(key: String): Boolean = settingsRepository.setCryptoKey(key)
+
+    fun resetCryptoKey() {
+        settingsRepository.setCryptoKey(ChaoxingKey.DEFAULT)
     }
 
     fun submit() {
@@ -76,9 +91,10 @@ class LoginViewModel(
     companion object {
         fun factory(
             authRepository: AuthRepository,
+            settingsRepository: SettingsRepository,
             initialAccount: String,
         ): ViewModelProvider.Factory = viewModelFactory {
-            initializer { LoginViewModel(authRepository, initialAccount) }
+            initializer { LoginViewModel(authRepository, settingsRepository, initialAccount) }
         }
     }
 }

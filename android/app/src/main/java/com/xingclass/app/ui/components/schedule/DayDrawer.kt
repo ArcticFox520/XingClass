@@ -59,7 +59,7 @@ import java.time.LocalDate
 /**
  * Single-day drawer.
  *
- * Layer order required by the UI guide:
+ * Layer order:
  *   global background (scrim) -> inset list container -> raised course cards.
  * The drawer shell itself is the global background colour and has no extra shadow.
  */
@@ -266,7 +266,7 @@ private fun DrawerCourseRow(course: Course, periodTimes: List<PeriodTime?>) {
                 )
             } else {
                 Text(
-                    text = "—",
+                    text = stringResource(R.string.course_time_unknown),
                     style = XingClassType.drawerTimeEnd,
                     color = palette.content,
                     maxLines = 1,

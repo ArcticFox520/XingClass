@@ -13,6 +13,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -23,6 +24,8 @@ class ChaoxingApiClientTest {
 
     private lateinit var server: MockWebServer
     private lateinit var cookieJar: ChaoxingCookieJar
+    private lateinit var endpoints: ChaoxingEndpoints
+    private lateinit var httpClient: OkHttpClient
     private lateinit var client: ChaoxingApiClient
 
     @Before
@@ -30,13 +33,12 @@ class ChaoxingApiClientTest {
         server = MockWebServer()
         server.start()
 
-        val endpoints = ChaoxingEndpoints(
+        endpoints = ChaoxingEndpoints(
             passportBase = server.url("/"),
-            wwwBase = server.url("/"),
             kbBase = server.url("/"),
         )
         cookieJar = ChaoxingCookieJar(FakeCookieStore(), now = { 1_000_000L })
-        val httpClient = OkHttpClient.Builder()
+        httpClient = OkHttpClient.Builder()
             .cookieJar(cookieJar)
             .build()
         client = ChaoxingApiClient(httpClient, NoopLogger(), endpoints)
@@ -83,6 +85,33 @@ class ChaoxingApiClientTest {
         assertEquals("0", formValue(body, "independentNameId"))
         assertFalse(body.contains("secret-password"))
         assertFalse(body.contains("13800000000"))
+    }
+
+    @Test
+    fun `login uses the configured crypto key`() = runTest {
+        server.enqueue(json("""{"status":true,"url":"https://www.chaoxing.com/"}"""))
+
+        val customKey = "0123456789abcdef"
+        val customClient = ChaoxingApiClient(
+            client = httpClient,
+            logger = NoopLogger(),
+            endpoints = endpoints,
+            cryptoKeyProvider = { customKey },
+        )
+
+        val result = customClient.login("13800000000", "secret-password")
+
+        assertTrue(result is AppResult.Success)
+        val body = server.takeRequest().body.readUtf8()
+        assertEquals(
+            ChaoxingCrypto.encrypt("13800000000", customKey),
+            formValue(body, "uname"),
+        )
+        assertEquals(
+            ChaoxingCrypto.encrypt("secret-password", customKey),
+            formValue(body, "password"),
+        )
+        assertNotEquals(ChaoxingCrypto.encrypt("13800000000"), formValue(body, "uname"))
     }
 
     @Test
@@ -232,7 +261,6 @@ class ChaoxingApiClientTest {
     fun `unreachable host maps to a network error`() = runTest {
         val endpoints = ChaoxingEndpoints(
             passportBase = "http://127.0.0.1:1/".toHttpUrl(),
-            wwwBase = "http://127.0.0.1:1/".toHttpUrl(),
             kbBase = "http://127.0.0.1:1/".toHttpUrl(),
         )
         val offlineClient = ChaoxingApiClient(

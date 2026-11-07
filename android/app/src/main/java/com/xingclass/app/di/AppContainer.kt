@@ -59,6 +59,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val logger: Logger = AndroidLogger(diagnosticsLog)
 
+    override val settingsRepository: SettingsRepository =
+        SharedPreferencesSettingsRepository(appContext)
+
     private val secureStorage: SecureStorage = KeystoreSecureStorage(appContext, logger)
     private val credentialStore = CredentialStore(secureStorage)
 
@@ -74,7 +77,11 @@ class DefaultAppContainer(context: Context) : AppContainer {
         .followRedirects(true)
         .build()
 
-    private val api: ChaoxingApi = ChaoxingApiClient(httpClient, logger)
+    private val api: ChaoxingApi = ChaoxingApiClient(
+        client = httpClient,
+        logger = logger,
+        cryptoKeyProvider = { settingsRepository.cryptoKey.value },
+    )
 
     private val remote: CourseRemoteDataSource = ChaoxingCourseRemoteDataSource(
         api = api,
@@ -111,7 +118,4 @@ class DefaultAppContainer(context: Context) : AppContainer {
         clock = clock,
         versionName = appVersionName,
     )
-
-    override val settingsRepository: SettingsRepository =
-        SharedPreferencesSettingsRepository(appContext)
 }

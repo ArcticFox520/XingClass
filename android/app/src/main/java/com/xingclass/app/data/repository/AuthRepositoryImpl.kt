@@ -9,6 +9,8 @@ import com.xingclass.app.data.remote.ChaoxingCookieJar
 import com.xingclass.app.domain.model.SessionStatus
 import com.xingclass.app.domain.repository.AuthRepository
 import com.xingclass.app.security.CredentialStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Login + session lifecycle.
@@ -27,13 +29,13 @@ class AuthRepositoryImpl(
         val normalizedAccount = account.trim()
         val result = api.login(normalizedAccount, password)
         if (result is AppResult.Success) {
-            credentialStore.saveAccount(normalizedAccount)
+            withContext(Dispatchers.IO) { credentialStore.saveAccount(normalizedAccount) }
         }
         return result
     }
 
     override suspend fun checkSession(): SessionStatus {
-        if (!cookieJar.hasCookies()) return SessionStatus.ABSENT
+        if (!hasLocalSession()) return SessionStatus.ABSENT
 
         logger.event(LogEvents.SESSION_CHECK_STARTED)
         return when (val result = api.getAuthStatus()) {
@@ -45,7 +47,7 @@ class AuthRepositoryImpl(
 
                 AuthStatus.INVALID -> {
                     logger.event(LogEvents.SESSION_CHECK_INVALID)
-                    cookieJar.clear()
+                    withContext(Dispatchers.IO) { cookieJar.clear() }
                     logger.event(LogEvents.SESSION_CLEARED)
                     SessionStatus.INVALID
                 }
@@ -66,16 +68,20 @@ class AuthRepositoryImpl(
 
     override fun savedAccount(): String? = credentialStore.getAccount()
 
-    override fun hasLocalSession(): Boolean = cookieJar.hasCookies()
+    override suspend fun hasLocalSession(): Boolean = withContext(Dispatchers.IO) {
+        cookieJar.hasCookies()
+    }
 
     override suspend fun logout() {
-        cookieJar.clear()
-        credentialStore.clearAccount()
+        withContext(Dispatchers.IO) {
+            cookieJar.clear()
+            credentialStore.clearAccount()
+        }
         logger.event(LogEvents.SESSION_CLEARED)
     }
 
     override suspend fun invalidateSession() {
-        cookieJar.clear()
+        withContext(Dispatchers.IO) { cookieJar.clear() }
         logger.event(LogEvents.SESSION_CLEARED)
     }
 }

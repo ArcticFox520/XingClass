@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -20,16 +18,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.xingclass.app.R
 import com.xingclass.app.di.AppContainer
-import com.xingclass.app.ui.components.neumorphic.NeumorphicElevation
+import com.xingclass.app.ui.components.BrandMark
 import com.xingclass.app.ui.components.neumorphic.NeumorphicLoadingDots
-import com.xingclass.app.ui.components.neumorphic.NeumorphicSurface
 import com.xingclass.app.ui.screens.login.LoginScreen
 import com.xingclass.app.ui.screens.login.LoginViewModel
 import com.xingclass.app.ui.screens.schedule.ScheduleScreen
@@ -101,6 +98,7 @@ private fun LoginRoute(
         key = "login-${rootState.sessionKey}",
         factory = LoginViewModel.factory(
             authRepository = container.authRepository,
+            settingsRepository = container.settingsRepository,
             initialAccount = rootState.savedAccount,
         ),
     )
@@ -114,6 +112,9 @@ private fun LoginRoute(
         onTogglePasswordVisible = viewModel::togglePasswordVisibility,
         onSubmit = viewModel::submit,
         onLoggedIn = rootViewModel::onLoginSuccess,
+        currentCryptoKey = viewModel::currentCryptoKey,
+        onSaveCryptoKey = viewModel::saveCryptoKey,
+        onResetCryptoKey = viewModel::resetCryptoKey,
     )
 }
 
@@ -172,6 +173,9 @@ private fun SettingsRoute(
         todayDate = today,
         onBack = rootViewModel::onBackFromSettings,
         onThemeChange = viewModel::setThemeMode,
+        onCryptoKeyChange = viewModel::onCryptoKeyChange,
+        onSaveCryptoKey = viewModel::saveCryptoKey,
+        onResetCryptoKey = viewModel::resetCryptoKey,
         onClearCache = viewModel::clearCache,
         onLogout = { viewModel.logout(rootViewModel::onLoggedOut) },
         onDismissMessage = viewModel::dismissMessage,
@@ -186,23 +190,10 @@ private fun BootScreen() {
     val colors = LocalNeumorphicColors.current
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            NeumorphicSurface(
-                modifier = Modifier.size(64.dp),
-                shape = CircleShape,
-                elevation = NeumorphicElevation.LARGE,
-                contentColor = colors.accent,
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "X",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.accent,
-                )
-            }
+            BrandMark()
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "XingClass",
+                text = stringResource(R.string.app_name),
                 style = XingClassType.wordmark,
                 color = colors.textPrimary,
             )

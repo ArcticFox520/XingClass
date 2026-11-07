@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.xingclass.app.domain.model.GridSpec
 import com.xingclass.app.ui.components.neumorphic.NeumorphicTab
 import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingClassType
@@ -37,7 +38,7 @@ fun DayTabs(
 ) {
     val colors = LocalNeumorphicColors.current
     Row(modifier = modifier) {
-        repeat(7) { day ->
+        repeat(GridSpec.DAYS) { day ->
             val selected = selectedDay == day
             NeumorphicTab(
                 selected = selected,

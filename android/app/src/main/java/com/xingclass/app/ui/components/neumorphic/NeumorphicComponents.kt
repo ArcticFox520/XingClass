@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingAnimation
 import com.xingclass.app.ui.theme.XingClassType
+import com.xingclass.app.ui.theme.XingControlSize
 import com.xingclass.app.ui.theme.XingRadii
 import com.xingclass.app.ui.theme.XingSpacing
 
@@ -102,23 +103,32 @@ fun NeumorphicButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     accent: Boolean = false,
+    /**
+     * Renders an unavailable button as a recessed slot. Used where "nothing to do" should read
+     * as pressed-in rather than as a faded, still-raised button (e.g. the login-key actions).
+     */
+    insetWhenDisabled: Boolean = false,
     shape: Shape = RoundedCornerShape(XingRadii.medium),
     elevation: NeumorphicElevation = NeumorphicElevation.MEDIUM,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 22.dp, vertical = 13.dp),
+    contentPadding: PaddingValues = PaddingValues(
+        horizontal = 22.dp,
+        vertical = XingControlSize.actionVerticalPadding,
+    ),
     content: @Composable RowScope.() -> Unit,
 ) {
     val colors = LocalNeumorphicColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val disabledInset = !enabled && insetWhenDisabled
     val pressProgress by animateFloatAsState(
-        targetValue = if (pressed && enabled) 1f else 0f,
+        targetValue = if ((pressed && enabled) || disabledInset) 1f else 0f,
         animationSpec = tween(XingAnimation.NORMAL_MS, easing = EaseInOut),
         label = "buttonPress",
     )
 
     NeumorphicSurface(
         modifier = modifier
-            .alpha(if (enabled) 1f else 0.45f)
+            .alpha(if (enabled || insetWhenDisabled) 1f else 0.45f)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -129,7 +139,11 @@ fun NeumorphicButton(
         shape = shape,
         elevation = elevation,
         backgroundColor = if (accent) colors.accent else colors.surface,
-        contentColor = if (accent) colors.onAccent else colors.textPrimary,
+        contentColor = when {
+            disabledInset -> colors.textTertiary
+            accent -> colors.onAccent
+            else -> colors.textPrimary
+        },
         pressProgress = pressProgress,
         contentPadding = contentPadding,
         contentAlignment = Alignment.Center,
@@ -259,8 +273,8 @@ fun NeumorphicBadge(
 fun NeumorphicTextField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String,
     modifier: Modifier = Modifier,
+    label: String? = null,
     placeholder: String = "",
     enabled: Boolean = true,
     isPassword: Boolean = false,
@@ -280,12 +294,14 @@ fun NeumorphicTextField(
     val shadowScale = 1f - 0.45f * focusProgress
 
     Column(modifier = modifier) {
-        Text(
-            text = label,
-            style = XingClassType.label,
-            color = colors.textSecondary,
-        )
-        Spacer(Modifier.height(XingSpacing.sm))
+        if (!label.isNullOrBlank()) {
+            Text(
+                text = label,
+                style = XingClassType.label,
+                color = colors.textSecondary,
+            )
+            Spacer(Modifier.height(XingSpacing.sm))
+        }
         NeumorphicSurface(
             shape = RoundedCornerShape(XingRadii.small),
             style = NeumorphicStyle.INSET,

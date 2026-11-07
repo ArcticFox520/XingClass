@@ -16,7 +16,7 @@ data class PeriodTime(
 
 object PeriodTimes {
     /** The grid shows 10 periods; the API may return an 11th entry. */
-    const val MAX_PERIODS = 10
+    const val MAX_PERIODS = GridSpec.PERIODS
 
     private val separator = Regex("\\s*[-~—–]\\s*")
     private val clock = Regex("^\\d{1,2}:\\d{2}$")

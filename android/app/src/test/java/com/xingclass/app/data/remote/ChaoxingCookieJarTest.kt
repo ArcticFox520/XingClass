@@ -92,6 +92,18 @@ class ChaoxingCookieJarTest {
     }
 
     @Test
+    fun `loads persisted cookies lazily`() {
+        val store = FakeCookieStore().apply { cookies = listOf(domainCookie()) }
+        val jar = ChaoxingCookieJar(store, now = { 1_000_000L })
+
+        assertEquals(0, store.loadCalls)
+        assertTrue(jar.hasCookies())
+        assertEquals(1, store.loadCalls)
+        assertTrue(jar.hasCookies())
+        assertEquals(1, store.loadCalls)
+    }
+
+    @Test
     fun `clear removes cookies from memory and storage`() {
         val store = FakeCookieStore()
         val jar = ChaoxingCookieJar(store, now = { 1_000_000L })

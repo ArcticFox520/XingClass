@@ -1,6 +1,7 @@
 package com.xingclass.app.security
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
@@ -38,6 +39,19 @@ class ChaoxingCryptoTest {
         val encrypted = ChaoxingCrypto.encrypt("abc")
         assertEquals(encrypted.trim(), encrypted)
         assertEquals(0, encrypted.count { it.isWhitespace() })
+    }
+
+    @Test
+    fun `uses a caller supplied key`() {
+        // Vector produced independently with OpenSSL AES-128-CBC/PKCS7 using the same key.
+        assertEquals(
+            "jadr6S2P5HJ8FLWmsWzEuw==",
+            ChaoxingCrypto.encrypt("xingclass", key = "0123456789abcdef"),
+        )
+        assertNotEquals(
+            ChaoxingCrypto.encrypt("xingclass"),
+            ChaoxingCrypto.encrypt("xingclass", key = "0123456789abcdef"),
+        )
     }
 
     @Test(expected = IllegalArgumentException::class)

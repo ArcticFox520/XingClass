@@ -3,6 +3,7 @@ package com.xingclass.app.ui.util
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.xingclass.app.R
+import com.xingclass.app.domain.model.GridSpec
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -34,7 +35,7 @@ object DateLabels {
     }
 
     private fun weekDatesFrom(monday: LocalDate): List<LocalDate> =
-        (0..6).map { monday.plusDays(it.toLong()) }
+        (0 until GridSpec.DAYS).map { monday.plusDays(it.toLong()) }
 
     fun weekdayShortRes(dayIndex: Int): Int = when (dayIndex.coerceIn(0, 6)) {
         0 -> R.string.weekday_short_1

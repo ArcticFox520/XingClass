@@ -122,9 +122,9 @@ class ChaoxingLessonParserTest {
     }
 
     @Test
-    fun `parses the verified live lessonArray envelope`() {
-        // Shape captured from the real getMyLessons response on 2026-11-06. All personal
-        // values are replaced with placeholders; only field names and types are preserved.
+    fun `parses a real lessonArray envelope`() {
+        // Shape of a real getMyLessons response. All personal values are replaced with
+        // placeholders; only field names and types are preserved.
         val raw = """
             {
               "data": {

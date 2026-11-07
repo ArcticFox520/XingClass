@@ -1,16 +1,8 @@
 package com.xingclass.app.ui.screens.schedule
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.EaseInOut
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -19,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,16 +19,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.xingclass.app.R
 import com.xingclass.app.domain.model.Course
 import com.xingclass.app.domain.model.PeriodTimes
 import com.xingclass.app.domain.model.ThemeMode
-import com.xingclass.app.ui.components.neumorphic.NeumorphicElevation
-import com.xingclass.app.ui.components.neumorphic.NeumorphicStyle
-import com.xingclass.app.ui.components.neumorphic.NeumorphicSurface
+import com.xingclass.app.ui.components.neumorphic.NeumorphicMessageBar
 import com.xingclass.app.ui.components.schedule.DayDrawer
 import com.xingclass.app.ui.components.schedule.DayTabs
 import com.xingclass.app.ui.components.schedule.PeriodColumn
@@ -47,13 +32,7 @@ import com.xingclass.app.ui.components.schedule.ScheduleHeader
 import com.xingclass.app.ui.components.schedule.ScheduleMetrics
 import com.xingclass.app.ui.components.schedule.WeekSwitcher
 import com.xingclass.app.ui.schedule.ScheduleUiState
-import com.xingclass.app.ui.theme.LocalNeumorphicColors
-import com.xingclass.app.ui.theme.XingAnimation
-import com.xingclass.app.ui.theme.XingClassType
-import com.xingclass.app.ui.theme.XingRadii
 import com.xingclass.app.ui.util.DateLabels
-import com.xingclass.app.ui.util.UiText
-import com.xingclass.app.ui.util.asString
 import kotlinx.coroutines.delay
 
 /**
@@ -76,7 +55,6 @@ fun ScheduleScreen(
     onSessionExpired: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = LocalNeumorphicColors.current
     val periodTimes = remember(state.lessonTimes) { PeriodTimes.parse(state.lessonTimes) }
     val weekDates = remember(state.todayDate, state.week, state.realCurrentWeek) {
         DateLabels.weekDatesFor(
@@ -172,7 +150,10 @@ fun ScheduleScreen(
                 )
                 Spacer(Modifier.width(ScheduleMetrics.Gap))
                 ScheduleGrid(
-                    state = state,
+                    courses = state.courses,
+                    status = state.status,
+                    error = state.error,
+                    todayIndex = state.highlightedTodayIndex,
                     onRetry = onRefresh,
                     onCourseClick = onCourseClick,
                     modifier = Modifier
@@ -182,33 +163,14 @@ fun ScheduleScreen(
             }
         }
 
-        AnimatedVisibility(
+        NeumorphicMessageBar(
             visible = state.message != null,
+            message = visibleMessage,
+            maxLines = 2,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 20.dp),
-            enter = fadeIn(tween(XingAnimation.FAST_MS)) +
-                slideInVertically(tween(XingAnimation.NORMAL_MS, easing = EaseInOut)) { it / 2 },
-            exit = fadeOut(tween(XingAnimation.NORMAL_MS)) +
-                slideOutVertically(tween(XingAnimation.NORMAL_MS, easing = EaseInOut)) { it / 2 },
-        ) {
-            NeumorphicSurface(
-                style = NeumorphicStyle.INSET,
-                shape = RoundedCornerShape(XingRadii.pill),
-                elevation = NeumorphicElevation.SMALL,
-                contentColor = colors.textSecondary,
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 9.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = visibleMessage?.asString().orEmpty(),
-                    style = XingClassType.caption,
-                    color = colors.textSecondary,
-                    maxLines = 2,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
+        )
 
         DayDrawer(
             visible = state.selectedDay != null,

@@ -1,34 +1,35 @@
-# 超星接口与实现记录
+# 超星接口
 
-> 本文描述 XingClass 实际使用的接口。
+> 本文描述 XingClass 实际使用的超星接口、请求参数与响应字段。
 >
-> **验证状态（2026-11-06）**：使用项目提供的测试账号完成了一次真实联调——
-> AES 加密登录成功、Cookie 会话复用成功、`getMyLessons` 真实响应成功解析为 7×10 网格。
-> 联调只在临时进程环境变量中持有凭据，未写入仓库、未打印密码/Cookie、未落盘保存原始响应；
-> 提交到测试中的真实结构样本已做脱敏（字段名与类型保留，值替换为占位符）。
->
-> 本文仍区分 **VERIFIED**（来自真实响应）与 **UNVERIFIED**（未捕获到、按防御性逻辑处理）。
+> 文中用“已验证”表示字段或行为来自真实响应，用“未验证”表示按防御性逻辑处理、尚未捕获真实样本。
+> 提交到测试中的真实结构样本已脱敏：字段名与类型保留，值替换为占位符。
 
 ---
 
-## 1. 登录加密（VERIFIED）
+## 1. 登录加密
 
 | 项目 | 值 |
 |---|---|
 | 算法 | AES / CBC / PKCS#7 填充 |
-| 密钥 | `u2oh6Vu^HWe4_AES`（超星前端公开混淆串，取前 16 字节） |
+| 密钥 | 默认 `u2oh6Vu^HWe4_AES`，可在设置页或登录页修改；固定 16 个字符，AES 取前 16 个 UTF-8 字节 |
 | IV | 与密钥相同（前 16 字节） |
 | 输出 | 标准 Base64（带 `=` 填充） |
-| 实现 | `security/ChaoxingCrypto.kt` |
-| 测试 | `ChaoxingCryptoTest` 使用独立 Python 实现生成的向量比对 |
+| 实现 | `domain/model/ChaoxingKey.kt`（默认值与校验）、`security/ChaoxingCrypto.kt`（加密） |
+| 测试 | `ChaoxingCryptoTest` 使用独立实现生成的向量比对；`ChaoxingKeyTest` 覆盖默认值与长度校验 |
 
 说明：JCE 中写作 `AES/CBC/PKCS5Padding`；对 16 字节分组而言 PKCS#5 填充与 PKCS#7 等价，
 向量测试已确认。表单提交时由 OkHttp `FormBody` 做 URL 编码（`+` → `%2B`，`=` → `%3D`）。
-真实登录请求的 JSON 响应验证了该加密方式可用。
+登录成功响应验证了该加密方式可用。
+
+默认值集中在 `ChaoxingKey.DEFAULT`。设置页与登录页弹窗保存的密钥由 `SettingsRepository` 持久化，
+`ChaoxingApiClient` 在每次登录时读取当前值；修改后**下一次登录**生效，不需要重启应用。
+输入必须是 trim 后**恰好 16 个字符**（默认值即 16 字符）；密钥是公开常量而非用户凭据，
+因此不使用 Keystore 加密存储。
 
 ---
 
-## 2. 登录（VERIFIED）
+## 2. 登录
 
 ### `POST https://passport2.chaoxing.com/fanyalogin`
 
@@ -40,16 +41,16 @@
 | 响应 Content-Type | 真实返回为 `text/html;charset=utf-8`，但 body 是 JSON（不要按 Content-Type 拒绝） |
 | 认证要求 | 无 |
 | Session 要求 | 无；响应 `Set-Cookie` 必须保存 |
-| 状态 | 成功路径 **VERIFIED**；失败分支（错误密码、验证码、双因子）`UNVERIFIED` |
+| 状态 | 成功路径已验证；失败分支（错误密码、验证码、双因子）未验证 |
 
-请求参数（真实联调使用）：
+请求参数：
 
 | 参数 | 值 | 说明 |
 |---|---|---|
 | `fid` | `-1` | 学校 ID；`-1` 表示按账号自动识别 |
 | `uname` | AES(Base64) 后的账号 | 必须先加密 |
 | `password` | AES(Base64) 后的密码 | 必须先加密 |
-| `refer` | `https://www.chaoxing.com/` | 本次实测成功；资料中另有 `http%3A%2F%2Fi.mooc.chaoxing.com` 形态，未对比 |
+| `refer` | `https://www.chaoxing.com/` | 已验证可用；另有 `http%3A%2F%2Fi.mooc.chaoxing.com` 形态，未对比 |
 | `t` | `true` | 登录标识 |
 | `forbidotherlogin` | `0` | 不禁止其他设备登录 |
 | `validate` | 空串 | 验证码标识 |
@@ -63,13 +64,13 @@
 { "status": true, "url": "https://www.chaoxing.com/" }
 ```
 
-实测结果：
+响应行为：
 
 - 响应 body 长度约 49 字节，`status` 为布尔 `true`。
 - 服务端下发 **12 个 Cookie**，域包括 `.chaoxing.com` 与 `passport2.chaoxing.com`。
-  后续对 `kb.chaoxing.com` 的课程请求复用同一 `requests.Session` / CookieJar 成功。
-- 登录失败响应未在本次联调中触发（避免反复尝试导致风控）；代码仍按 `status == false` +
-  `msg2/msg/message` 分类为 `InvalidCredentials` / `LoginFailed`，该分支 `UNVERIFIED`。
+  后续对 `kb.chaoxing.com` 的课程请求复用同一 CookieJar 成功。
+- 登录失败响应未捕获；代码按 `status == false` + `msg2/msg/message` 分类为
+  `InvalidCredentials` / `LoginFailed`，该分支未验证。
 
 实现行为：
 
@@ -80,7 +81,7 @@
 
 ---
 
-## 3. 鉴权状态（行为已实测）
+## 3. 鉴权状态
 
 ### `GET https://passport2.chaoxing.com/getauthstatus/v2`
 
@@ -89,9 +90,9 @@
 | Method | GET |
 | 参数 | 无（资料如此描述） |
 | 认证要求 | 依赖 Cookie |
-| 状态 | 真实行为 **VERIFIED**：登录态下仍返回“参数为空”，不能用于正向确认会话 |
+| 状态 | 已验证：登录态下仍返回“参数为空”，不能用于正向确认会话 |
 
-真实响应（**在刚刚登录成功、Cookie 会话有效的情况下**）：
+真实响应（登录成功、Cookie 会话有效时）：
 
 ```json
 { "mes": "参数为空", "type": "1", "status": false }
@@ -101,8 +102,8 @@
 
 - 即使会话完全有效，该接口在无参数调用时也会返回 `status: false` + “参数为空”。
 - 因此 **不能** 把 `status != true` 当作“会话失效”并清 Cookie，否则用户每次启动都会被登出。
-- 这正是 `AuthRepository` / `RootViewModel` 采用 `VALID / INVALID / UNKNOWN` 三态，
-  并把“参数为空”归为 `UNKNOWN` 的真实原因。
+- 这是 `AuthRepository` / `RootViewModel` 采用 `VALID / INVALID / UNKNOWN` 三态，
+  并把“参数为空”归为 `UNKNOWN` 的原因。
 
 实现判定：
 
@@ -112,8 +113,8 @@
 | `INVALID` | HTTP 401/403；响应是登录页 HTML；`status == false` 且文案含“未登录/失效/过期/没有权限” |
 | `UNKNOWN` | 其他一切（含“参数为空”、无法解析、网络失败） |
 
-`UNKNOWN` 时进入课表并依赖课程请求做最终判定。真正的“会话过期”响应本次未捕获，
-代码对 401/403、登录页 HTML、失效文案的防御性处理为 `UNVERIFIED`，但不会误登出。
+`UNKNOWN` 时进入课表并依赖课程请求做最终判定。会话过期的真实响应未捕获，
+代码对 401/403、登录页 HTML、失效文案的防御性处理未验证，但不会误登出。
 
 ---
 
@@ -123,11 +124,10 @@
 
 资料记录该接口用于读取指定 Cookie，返回 `{code, data:{...}, status:200}`。
 **MVP 不需要它**：Cookie 由本地 CookieJar 管理，因此没有实现，也不在 UI 暴露。
-本次联调也未调用该接口。
 
 ---
 
-## 5. 课程（响应结构 VERIFIED）
+## 5. 课程
 
 ### `GET https://kb.chaoxing.com/pc/curriculum/getMyLessons`
 
@@ -137,9 +137,9 @@
 | 参数 | `curTime`（毫秒时间戳，缓存时间戳；**不控制周次**）、`week`（1-based 教学周，控制返回哪一周） |
 | 认证要求 | 依赖 Cookie/Session |
 | 响应 Content-Type | `application/json` |
-| 状态 | **结构已通过真实响应验证**（2026-11-06）；过期会话分支 `UNVERIFIED` |
+| 状态 | 结构已验证；过期会话分支未验证 |
 
-真实响应结构（值已替换为占位符，字段名/类型来自真实抓取）：
+真实响应结构（值已替换为占位符，字段名/类型来自真实响应）：
 
 ```json
 {
@@ -195,19 +195,18 @@
 - `data.curriculum` 携带学期/周次元数据；`lessonTimeConfigArray` 是 **节次时间字符串数组**，
   不是课程数组，长度 11（含 08:30-09:15 等）。App 用前 10 个解析为 `PeriodTimes`，
   驱动左侧节数栏的上/下课时间与抽屉的起止时间。
-- 本次真实响应包含 **14 条** `lessonArray`：`dayOfWeek` 为 1–5（周一至周五），
+- 真实响应样本包含 **14 条** `lessonArray`：`dayOfWeek` 为 1–5（周一至周五），
   `beginNumber` 为 1/3/5/7/9，`length` 为 2，`weeks` 为 "10"，日期覆盖 2026-11-02 至 2026-11-06。
-  原始映射为 14/14（实网集成测试断言），随后由 `CourseMerger` 把“相同内容 + 时间连贯”
-  的条目合并成单个方块（本次数据未触发可合并项）。
+  这些条目可全部映射进 7×10 网格；`CourseMerger` 仅在内容相同且时间连续时合并。
 - 接口默认返回**真实本周**的课程实例；指定 `week` 时返回该周的实例（详见 5.2）。
   它返回的是单周课表，不是整学期列表。
 - `currentWeek` / `realCurrentWeek` 始终表示**真实本周**，不会因为请求了第 9 周而变成 9。
 
-### 5.2 周次切换（VERIFIED，2026-11-06）
+### 5.2 周次切换
 
 关键结论：**`week` 才是周次参数，`curTime` 不改变返回的周次。**
 
-真实探测（同一个有效会话，2026-11-06）：
+探测结果（同一个有效会话）：
 
 | 请求 | `lessonArray` 数量 | `wholeDay` 范围 | 课程 `weeks` |
 |---|---|---|---|
@@ -218,9 +217,9 @@
 | `week=0` / `23` / `999` | 0（HTTP 200，不报错） | — | — |
 | `week=abc` | 404 | — | — |
 
-- 无论 `week` 传什么，响应里的 `currentWeek` 与 `realCurrentWeek` **始终是真实本周**（本次为 10）。
+- 无论 `week` 传什么，响应里的 `currentWeek` 与 `realCurrentWeek` **始终是真实本周**（示例数据为 10）。
   客户端必须自己记录“当前查看第几周”，不能拿响应的 `currentWeek` 当选中周。
-- 每条 lesson 的 `weeks` 字段与请求的 `week` 一致（本次为 `"9"`/`"10"`/`"11"`），
+- 每条 lesson 的 `weeks` 字段与请求的 `week` 一致（示例为 `"9"`/`"10"`/`"11"`），
   这是验证周次切换是否生效的直接依据。
 - 合法范围是 `1..maxWeek`。越界不报错而是返回空数组；客户端仍应限制在合法范围内。
 - `week=abc` 返回 404；客户端只发送数字。
@@ -237,7 +236,7 @@
 | 实例 ID | `lessonId` | 唯一；`courseId` 是课程级 ID，同一门课一周内重复，**不能用于去重** |
 | 星期 | `dayOfWeek` | **1–7，1=周一**；转换为内部 0–6 |
 | 开始节 | `beginNumber` | 1–10 |
-| 跨节数 | `length` | 本次真实值为 2 |
+| 跨节数 | `length` | 真实样本中为 2 |
 | 周次 | `weeks` | 字符串；与请求的 `week` 一致，用于验证周次切换，不参与网格定位 |
 | 日期 | `day` / `wholeDay` | `11-06` / `2026-11-06`；不参与网格定位 |
 | 校区 | `extend` | JSON 字符串；MVP 不使用 |
@@ -275,7 +274,7 @@
 - 无课程容器且存在失效文案 → `SessionExpired`，否则 `CourseFetch`
 - 空 `lessonArray` → 合法的“没有课程”
 
-本次未捕获真实的过期会话响应，因此上述分支的**具体服务端表现 `UNVERIFIED`**；
+过期会话的真实响应未捕获，因此上述分支的**具体服务端表现未验证**；
 但错误不会破坏已有缓存，且会清理本地会话并回到登录页。
 
 ---
@@ -292,20 +291,18 @@
 
 ---
 
-## 7. 真实联调与可复现方式
+## 7. 验证方式
 
-引擎/客户端：
+`LiveChaoxingApiTest` 使用真实的 `ChaoxingApiClient` + `ChaoxingCookieJar` +
+`ChaoxingLessonParser` + `CourseMapper` 执行，断言：
 
-- 2026-11-06 先使用独立 Python 探针验证登录与响应结构；
-- 再用项目真实的 `ChaoxingApiClient` + `ChaoxingCookieJar` + `ChaoxingLessonParser` +
-  `CourseMapper` 执行 `LiveChaoxingApiTest`，断言：
-  - 登录成功；
-  - CookieJar 中产生了会话 Cookie；
-  - 当前周课程请求成功且非空；
-  - **解析出的每一条课程都能映射进 7×10 网格**（实网 14/14）；
-  - **切换到上一周后返回的课程 `weeks` 与目标周一致**，且 `currentWeek` 仍为真实本周。
+- 登录成功；
+- CookieJar 中产生了会话 Cookie；
+- 当前周课程请求成功且非空；
+- **解析出的每一条课程都能映射进 7×10 网格**；
+- **切换到上一周后返回的课程 `weeks` 与目标周一致**，且 `currentWeek` 仍为真实本周。
 
-复现（凭据只放在环境变量中，不写入任何文件）：
+运行（凭据只放在环境变量中，不写入任何文件）：
 
 ```bash
 export XINGCLASS_TEST_ACCOUNT=你的账号
@@ -314,7 +311,7 @@ cd android
 ./gradlew testDebugUnitTest --tests '*LiveChaoxingApiTest' --no-daemon
 ```
 
-该测试在 CI 中默认跳过（`Assume.assumeTrue`），不会因为缺少凭据失败，也不会在仓库或日志中
+该测试默认跳过（`Assume.assumeTrue`），不会因为缺少凭据失败，也不会在仓库或日志中
 留下账号密码。提交到仓库的真实结构样本已脱敏。
 
 ---
@@ -325,12 +322,11 @@ cd android
 - `Logger` 只接受固定事件名（`LOGIN_REQUEST_STARTED`、`COURSE_FETCH_SUCCESS` 等），
   异常只记录**类名**。
 - 所有接口仅通过 HTTPS；`usesCleartextTraffic=false`。
-- 联调期间没有把任何账号、密码、Cookie、课程名、教师名写入仓库或文档。
 
 ## 9. 当真实响应再次变化时
 
 1. 不要改 UI 去适配猜测，先用一次真实请求确认结构（不要把响应体提交到仓库）；
 2. 更新 `ChaoxingLessonParser` 的容器键/字段别名，并补充脱敏结构测试；
 3. 如果再次出现“空数组抢占课程列表”之类的结构，优先在 Parser 中收紧条件，而不是在 Mapper 中兜底；
-4. 更新本文档，把 `UNVERIFIED` 改为已验证结论，并注明日期；
+4. 更新本文档的验证状态；
 5. 不要在源码、文档、Issue 或日志中留下账号、密码、Cookie 或真实课程数据。

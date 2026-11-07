@@ -13,12 +13,14 @@ import com.xingclass.app.domain.model.ThemeMode
 import com.xingclass.app.domain.repository.AuthRepository
 import com.xingclass.app.domain.repository.SettingsRepository
 import com.xingclass.app.ui.util.UiText
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class RootDestination {
     CHECKING,
@@ -52,7 +54,6 @@ class RootViewModel(
     private val _state = MutableStateFlow(
         RootUiState(
             themeMode = settingsRepository.themeMode.value,
-            savedAccount = authRepository.savedAccount().orEmpty(),
         ).let { state ->
             state.copy(darkTheme = AutoTheme.isDark(state.themeMode, clock.now()))
         },
@@ -81,6 +82,8 @@ class RootViewModel(
 
     private suspend fun bootstrap() {
         _state.update { it.copy(destination = RootDestination.CHECKING) }
+        val savedAccount = withContext(Dispatchers.IO) { authRepository.savedAccount().orEmpty() }
+        _state.update { it.copy(savedAccount = savedAccount) }
         val status = if (authRepository.hasLocalSession()) {
             authRepository.checkSession()
         } else {
@@ -102,13 +105,19 @@ class RootViewModel(
     }
 
     fun onLoginSuccess() {
+        val sessionKey = _state.value.sessionKey + 1
         _state.update {
             it.copy(
                 destination = RootDestination.SCHEDULE,
-                savedAccount = authRepository.savedAccount().orEmpty(),
                 sessionNotice = null,
-                sessionKey = it.sessionKey + 1,
+                sessionKey = sessionKey,
             )
+        }
+        viewModelScope.launch {
+            val account = withContext(Dispatchers.IO) { authRepository.savedAccount().orEmpty() }
+            _state.update {
+                if (it.sessionKey == sessionKey) it.copy(savedAccount = account) else it
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.xingclass.app.data.remote.dto
 
+import com.xingclass.app.domain.model.GridSpec
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -9,10 +10,10 @@ import kotlinx.serialization.json.JsonPrimitive
 /**
  * Tolerant Chaoxing lesson payload parser.
  *
- * The documentation only shows a partial example (`data: [{ id, name, teacher, time, location,
- * status }]`), so the parser walks the JSON tree looking for a lesson array and accepts common
- * field aliases. It never invents data: when the day or start period cannot be determined the
- * entry is dropped by [com.xingclass.app.data.mapper.CourseMapper].
+ * The real payload nests lessons in `data.lessonArray` (see docs/API.md), but the parser still
+ * walks the JSON tree and accepts common field aliases so a schema change or a legacy shape does
+ * not blank the schedule. It never invents data: when the day or start period cannot be
+ * determined the entry is dropped by [com.xingclass.app.data.mapper.CourseMapper].
  *
  * This is intentionally the only place in the app that knows about Chaoxing field names.
  */
@@ -24,7 +25,7 @@ object ChaoxingLessonParser {
     }
 
     private val preferredContainerKeys = listOf(
-        // Verified live on 2026-11-06: the real payload nests lessons in data.lessonArray.
+        // The real payload nests lessons in data.lessonArray.
         "lessonArray", "lessons", "lessonList", "data", "list", "rows", "result", "records",
         "courseList",
     )
@@ -53,7 +54,7 @@ object ChaoxingLessonParser {
         "day", "dayIndex", "dayOfWeekIndex", "weekIndex",
     )
     private val startKeys = arrayOf(
-        // "beginNumber" is the field used by the verified live lessonArray payload.
+        // "beginNumber" is the field used by the real lessonArray payload.
         "beginNumber", "start", "startSection", "sectionStart", "nodeStart", "beginSection",
         "startNode", "startSectionNum", "sectionStartNum", "startNumber",
     )
@@ -206,7 +207,7 @@ object ChaoxingLessonParser {
             teacher = obj.textOf(*teacherKeys) ?: obj.arrayTextOf(*teacherKeys),
             location = obj.textOf(*locationKeys)
                 ?: obj.objectTextOf("locationInfo", "classroom", "place"),
-            dayIndex = dayIndex?.takeIf { it in 0..6 },
+            dayIndex = dayIndex?.takeIf { it in 0 until GridSpec.DAYS },
             start = start,
             end = end,
             span = span,

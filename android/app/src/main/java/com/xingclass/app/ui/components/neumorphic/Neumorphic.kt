@@ -19,7 +19,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Unified neumorphic shadow system. No component is allowed to hand-roll shadow numbers; they
- * all pick one of the three elevations below (see AGENT_GUIDE §11/§15).
+ * all pick one of the three elevations below. Shadow colours and radii come from DesignTokens;
+ * callers never hand-roll numbers.
  *
  * @param offset distance of the light/dark blurred edge
  * @param blur shadow blur radius
@@ -52,8 +53,8 @@ enum class NeumorphicStyle {
 /**
  * Draws the neumorphic surface.
  *
- * [pressProgress] animates RAISED -> INSET without any translation, exactly as required by the
- * style guide. When [style] is RAISED the raised halos fade out and the inset shading fades in.
+ * [pressProgress] animates RAISED -> INSET without any translation. When [style] is RAISED the
+ * raised halos fade out and the inset shading fades in.
  * [shadowScale] is used for the "input focus opens the channel" rule: the inset depth shrinks.
  */
 fun Modifier.neumorphic(

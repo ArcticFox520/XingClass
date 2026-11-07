@@ -97,7 +97,6 @@ val DarkNeumorphicColors = NeumorphicColors(
 val LocalNeumorphicColors = staticCompositionLocalOf { LightNeumorphicColors }
 
 object XingSpacing {
-    val xxs = 2.dp
     val xs = 4.dp
     val sm = 8.dp
     val md = 12.dp
@@ -114,11 +113,17 @@ object XingRadii {
     val pill = 100.dp
 }
 
+/** Reused control dimensions; keeps repeated dp values out of screens and components. */
+object XingControlSize {
+    val actionVerticalPadding = 13.dp
+    val compactActionVerticalPadding = 12.dp
+    val iconButton = 38.dp
+    val iconGlyph = 17.dp
+}
+
 object XingAnimation {
     const val FAST_MS = 200
     const val NORMAL_MS = 300
-    const val SLOW_MS = 450
-    const val AUTO_THEME_TICK_MS = 60_000L
 }
 
 /**

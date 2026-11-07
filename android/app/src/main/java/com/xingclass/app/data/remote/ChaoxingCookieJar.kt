@@ -21,14 +21,12 @@ class ChaoxingCookieJar(
 
     private val lock = Any()
     private val cookies = mutableListOf<Cookie>()
-
-    init {
-        cookies.addAll(store.load())
-    }
+    private var loaded = false
 
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         if (cookies.isEmpty()) return
         synchronized(lock) {
+            ensureLoadedLocked()
             // Refresh both Deletion and update: last write wins per (domain, path, name).
             cookies.forEach { incoming ->
                 this.cookies.removeAll {
@@ -46,24 +44,30 @@ class ChaoxingCookieJar(
 
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
         synchronized(lock) {
+            ensureLoadedLocked()
             pruneExpiredLocked()
             return cookies.filter { it.matches(url) }
         }
     }
 
     fun hasCookies(): Boolean = synchronized(lock) {
+        ensureLoadedLocked()
         pruneExpiredLocked()
         cookies.isNotEmpty()
     }
 
-    /** Used by tests and diagnostics; never log the returned values. */
-    fun snapshot(): List<Cookie> = synchronized(lock) { cookies.toList() }
-
     fun clear() {
         synchronized(lock) {
+            loaded = true
             cookies.clear()
             store.clear()
         }
+    }
+
+    private fun ensureLoadedLocked() {
+        if (loaded) return
+        cookies.addAll(store.load())
+        loaded = true
     }
 
     private fun pruneExpiredLocked() {

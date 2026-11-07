@@ -1,5 +1,6 @@
 package com.xingclass.app.security
 
+import com.xingclass.app.domain.model.ChaoxingKey
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import javax.crypto.Cipher
@@ -15,20 +16,21 @@ import javax.crypto.spec.SecretKeySpec
  *  - IV = the same 16 bytes
  *  - output is standard Base64 with padding
  *
- * This key is a public constant of the Chaoxing web client, not a user secret. It is kept in
- * exactly one place so the login ViewModel/ApiClient never deal with crypto primitives.
+ * This key is a public constant of the Chaoxing web client, not a user secret. Its default lives
+ * in [ChaoxingKey]; the Settings screen can override it when Chaoxing rotates the value. The
+ * login ViewModel/ApiClient never deal with crypto primitives.
  */
 object ChaoxingCrypto {
 
-    /** Public obfuscation string used by the Chaoxing login page. */
-    const val KEY = "u2oh6Vu^HWe4_AES"
+    /** Public obfuscation string used by the Chaoxing login page (default, overridable). */
+    const val KEY = ChaoxingKey.DEFAULT
 
     /**
      * JCE names PKCS#5 padding, but for a 16-byte block cipher it is identical to PKCS#7.
-     * Verified against an independent implementation in ChaoxingCryptoTest.
+     * ChaoxingCryptoTest compares it against an independent implementation.
      */
     private const val TRANSFORMATION = "AES/CBC/PKCS5Padding"
-    private const val KEY_LENGTH_BYTES = 16
+    private const val KEY_LENGTH_BYTES = ChaoxingKey.MIN_BYTES
 
     fun encrypt(plainText: String, key: String = KEY): String {
         val keyBytes = key.toByteArray(StandardCharsets.UTF_8)

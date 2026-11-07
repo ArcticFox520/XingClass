@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <lint>
     <!--
-      Adaptive icons live in mipmap-anydpi-v26. An unversioned mipmap-anydpi folder is rejected
-      by AAPT2 in this project, so the standard versioned location is intentional.
+      Adaptive icons live in mipmap-anydpi-v26. Because minSdk is 26 the -v26 qualifier is
+      redundant and lint reports ObsoleteSdkInt; the versioned folder is still the standard
+      adaptive-icon location.
     -->
     <issue id="ObsoleteSdkInt">
         <ignore path="src/main/res/mipmap-anydpi-v26" />

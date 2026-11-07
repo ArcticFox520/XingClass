@@ -33,6 +33,7 @@ import com.xingclass.app.ui.components.neumorphic.NeumorphicIconButton
 import com.xingclass.app.ui.schedule.ScheduleStatus
 import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingClassType
+import com.xingclass.app.ui.theme.XingControlSize
 import com.xingclass.app.ui.theme.XingRadii
 import com.xingclass.app.ui.theme.XingSpacing
 import com.xingclass.app.ui.util.dateLabel
@@ -109,16 +110,16 @@ fun ScheduleHeader(
             icon = Icons.Filled.Refresh,
             contentDescription = stringResource(R.string.schedule_refresh),
             modifier = Modifier.rotate(if (refreshing) angle else 0f),
-            size = 38.dp,
-            iconSize = 17.dp,
+            size = XingControlSize.iconButton,
+            iconSize = XingControlSize.iconGlyph,
         )
         Spacer(Modifier.width(XingSpacing.sm))
         NeumorphicIconButton(
             onClick = onOpenSettings,
             icon = Icons.Filled.Settings,
             contentDescription = stringResource(R.string.schedule_settings),
-            size = 38.dp,
-            iconSize = 17.dp,
+            size = XingControlSize.iconButton,
+            iconSize = XingControlSize.iconGlyph,
         )
     }
 }

@@ -3,6 +3,7 @@ package com.xingclass.app.data.repository
 import com.xingclass.app.core.AppError
 import com.xingclass.app.core.AppResult
 import com.xingclass.app.core.NoopLogger
+import com.xingclass.app.data.local.CourseCacheStore
 import com.xingclass.app.domain.model.Course
 import com.xingclass.app.domain.model.CourseCacheSnapshot
 import com.xingclass.app.domain.model.CourseWeek
@@ -10,10 +11,12 @@ import com.xingclass.app.testutil.FakeAuthRepository
 import com.xingclass.app.testutil.FakeCourseCache
 import com.xingclass.app.testutil.FakeCourseRemote
 import com.xingclass.app.testutil.FixedAppClock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.time.LocalDateTime
 
@@ -183,5 +186,33 @@ class CourseRepositoryImplTest {
         assertEquals(1, cache.writes)
         assertTrue(cache.snapshot!!.courses.isEmpty())
         assertEquals(10, cache.snapshot?.week)
+    }
+
+    @Test
+    fun `cancellation from the cache write is propagated`() = runTest {
+        val remote = FakeCourseRemote(AppResult.Success(week(listOf(course("a")))))
+        val cancellingCache = object : CourseCacheStore {
+            override suspend fun read(): CourseCacheSnapshot? = null
+
+            override suspend fun write(snapshot: CourseCacheSnapshot) {
+                throw CancellationException("cancelled")
+            }
+
+            override suspend fun clear() = Unit
+        }
+        val repository = CourseRepositoryImpl(
+            remote = remote,
+            cache = cancellingCache,
+            authRepository = auth,
+            clock = clock,
+            logger = NoopLogger(),
+        )
+
+        try {
+            repository.refreshCourses(null)
+            fail("refreshCourses must propagate cancellation")
+        } catch (expected: CancellationException) {
+            assertEquals("cancelled", expected.message)
+        }
     }
 }

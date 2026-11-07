@@ -17,8 +17,11 @@ interface AuthRepository {
     /** Account previously used on this device (encrypted at rest), for pre-filling the form. */
     fun savedAccount(): String?
 
-    /** True when a local session cookie exists, regardless of server validation. */
-    fun hasLocalSession(): Boolean
+    /**
+     * True when a local session cookie exists, regardless of server validation.
+     * Reads the encrypted cookie store, so it must be called from a coroutine.
+     */
+    suspend fun hasLocalSession(): Boolean
 
     /** User-initiated logout: clear cookies and the saved account. */
     suspend fun logout()
@@ -45,4 +48,18 @@ interface SettingsRepository {
     val themeMode: StateFlow<ThemeMode>
 
     fun setThemeMode(mode: ThemeMode)
+
+    /**
+     * Chaoxing login AES key. The default is a public constant, but it is user-overridable so a
+     * server-side key rotation does not require a new app release.
+     */
+    val cryptoKey: StateFlow<String>
+
+    /**
+     * Persists [key] after trimming it.
+     *
+     * @return false unless the trimmed key is exactly
+     * [com.xingclass.app.domain.model.ChaoxingKey.LENGTH] characters; nothing is written then.
+     */
+    fun setCryptoKey(key: String): Boolean
 }

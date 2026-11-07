@@ -1,5 +1,7 @@
 package com.xingclass.app.data.mapper
 
+import com.xingclass.app.domain.model.GridSpec
+
 /**
  * Parses Chaoxing's human readable time text, e.g. "周一第1-2节", "星期三 5-6节".
  *
@@ -46,8 +48,8 @@ object CourseTimeParser {
 
         return Parsed(
             day = day,
-            start = start?.takeIf { it in 1..10 },
-            span = span?.takeIf { it in 1..10 },
+            start = start?.takeIf { it in 1..GridSpec.PERIODS },
+            span = span?.takeIf { it in 1..GridSpec.PERIODS },
         )
     }
 
@@ -59,6 +61,6 @@ object CourseTimeParser {
         "五" -> 4
         "六" -> 5
         "日", "天" -> 6
-        else -> token.toIntOrNull()?.minus(1)?.takeIf { it in 0..6 }
+        else -> token.toIntOrNull()?.minus(1)?.takeIf { it in 0 until GridSpec.DAYS }
     }
 }

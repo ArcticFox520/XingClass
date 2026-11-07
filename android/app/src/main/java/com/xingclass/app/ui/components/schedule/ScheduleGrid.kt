@@ -35,7 +35,6 @@ import com.xingclass.app.ui.components.neumorphic.NeumorphicStyle
 import com.xingclass.app.ui.components.neumorphic.neumorphic
 import com.xingclass.app.ui.schedule.ScheduleLayoutCalculator
 import com.xingclass.app.ui.schedule.ScheduleStatus
-import com.xingclass.app.ui.schedule.ScheduleUiState
 import com.xingclass.app.ui.theme.LocalNeumorphicColors
 import com.xingclass.app.ui.theme.XingClassType
 import com.xingclass.app.ui.theme.XingRadii
@@ -56,15 +55,18 @@ object ScheduleMetrics {
  */
 @Composable
 fun ScheduleGrid(
-    state: ScheduleUiState,
+    courses: List<Course>,
+    status: ScheduleStatus,
+    error: AppError?,
+    todayIndex: Int,
     onRetry: () -> Unit,
     onCourseClick: (Course) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalNeumorphicColors.current
     val shape = RoundedCornerShape(XingRadii.large)
-    val placements = remember(state.courses) {
-        ScheduleLayoutCalculator.place(state.courses)
+    val placements = remember(courses) {
+        ScheduleLayoutCalculator.place(courses)
     }
 
     Box(
@@ -84,19 +86,19 @@ fun ScheduleGrid(
                 .padding(ScheduleMetrics.GridPadding),
         ) {
             GridGuides(
-                todayIndex = state.highlightedTodayIndex,
+                todayIndex = todayIndex,
                 modifier = Modifier.matchParentSize(),
             )
 
             when {
-                state.courses.isEmpty() &&
-                    (state.status == ScheduleStatus.LOADING || state.status == ScheduleStatus.REFRESHING) ->
+                courses.isEmpty() &&
+                    (status == ScheduleStatus.LOADING || status == ScheduleStatus.REFRESHING) ->
                     GridLoading()
 
-                state.courses.isEmpty() && state.error != null ->
-                    GridError(error = state.error ?: AppError.Unknown, onRetry = onRetry)
+                courses.isEmpty() && error != null ->
+                    GridError(error = error, onRetry = onRetry)
 
-                state.courses.isEmpty() -> GridEmpty()
+                courses.isEmpty() -> GridEmpty()
 
                 else -> ScheduleGridBody(
                     placements = placements,

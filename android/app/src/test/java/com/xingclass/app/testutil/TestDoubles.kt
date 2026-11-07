@@ -78,7 +78,7 @@ class FakeAuthRepository : AuthRepository {
 
     override fun savedAccount(): String? = accountHint
 
-    override fun hasLocalSession(): Boolean = hasSession
+    override suspend fun hasLocalSession(): Boolean = hasSession
 
     override suspend fun logout() {
         logoutCalls++
@@ -125,8 +125,12 @@ class FakeChaoxingApi : ChaoxingApi {
 class FakeCookieStore : CookieStore {
     var cookies: List<Cookie> = emptyList()
     var clearCalls = 0
+    var loadCalls = 0
 
-    override fun load(): List<Cookie> = cookies
+    override fun load(): List<Cookie> {
+        loadCalls++
+        return cookies
+    }
 
     override fun save(cookies: List<Cookie>) {
         this.cookies = cookies

@@ -1,6 +1,7 @@
 package com.xingclass.app.ui.schedule
 
 import com.xingclass.app.domain.model.Course
+import com.xingclass.app.domain.model.GridSpec
 
 /**
  * Pure layout math for the one-screen schedule.
@@ -22,8 +23,8 @@ data class CoursePlacement(
 )
 
 object ScheduleLayoutCalculator {
-    const val DAYS = 7
-    const val PERIODS = 10
+    const val DAYS = GridSpec.DAYS
+    const val PERIODS = GridSpec.PERIODS
 
     fun place(courses: List<Course>): List<CoursePlacement> {
         val valid = courses.filter {

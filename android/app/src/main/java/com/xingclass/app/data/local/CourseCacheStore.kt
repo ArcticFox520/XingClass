@@ -2,6 +2,8 @@ package com.xingclass.app.data.local
 
 import com.xingclass.app.domain.model.Course
 import com.xingclass.app.domain.model.CourseCacheSnapshot
+import com.xingclass.app.domain.model.GridSpec
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -52,6 +54,8 @@ class FileCourseCacheStore(
                 maxWeek = maxWeek,
                 lessonTimes = envelope.lessonTimes,
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (t: Throwable) {
             runCatching { file.delete() }
             null
@@ -88,10 +92,10 @@ class FileCourseCacheStore(
     }
 
     private fun isPlausible(course: Course): Boolean =
-        course.day in 0..6 &&
-            course.start in 1..10 &&
+        course.day in 0 until GridSpec.DAYS &&
+            course.start in 1..GridSpec.PERIODS &&
             course.span >= 1 &&
-            course.start + course.span - 1 <= 10 &&
+            course.start + course.span - 1 <= GridSpec.PERIODS &&
             course.title.isNotBlank()
 
     @Serializable
@@ -106,7 +110,7 @@ class FileCourseCacheStore(
     )
 
     private companion object {
-        /** v3 added lessonTimes; v2 added week metadata. Older caches are discarded. */
+        /** Bump when the cache schema changes; entries with another version are discarded. */
         const val CACHE_VERSION = 3
     }
 }

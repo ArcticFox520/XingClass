@@ -13,6 +13,7 @@ import com.xingclass.app.domain.model.CourseCacheSnapshot
 import com.xingclass.app.domain.repository.CourseRepository
 import com.xingclass.app.ui.schedule.ScheduleUiState
 import com.xingclass.app.ui.util.UiText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +39,13 @@ class ScheduleViewModel(
 
     init {
         viewModelScope.launch {
-            val cached = runCatching { courseRepository.getCachedCourses() }.getOrNull()
+            val cached = try {
+                courseRepository.getCachedCourses()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                null
+            }
             if (cached != null) {
                 applySnapshot(cached, fromCache = true)
             }

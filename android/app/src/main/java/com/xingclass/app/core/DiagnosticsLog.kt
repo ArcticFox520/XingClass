@@ -4,6 +4,8 @@ import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 
 data class DiagnosticsEntry(
     val timestampMillis: Long,
@@ -24,6 +26,10 @@ class DiagnosticsLog(
 ) {
     private val lock = Any()
     private val recent = ArrayDeque<DiagnosticsEntry>()
+    private val writer = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "xingclass-diagnostics").apply { isDaemon = true }
+    }
+    private var lastWrite: Future<*>? = null
 
     fun info(message: String) = record("INFO", message)
 
@@ -32,6 +38,7 @@ class DiagnosticsLog(
     fun snapshot(): List<DiagnosticsEntry> = synchronized(lock) { recent.toList() }
 
     fun exportText(header: String): String = synchronized(lock) {
+        awaitWritesLocked()
         val persisted = runCatching {
             if (file.isFile) file.readText() else ""
         }.getOrDefault("")
@@ -57,7 +64,18 @@ class DiagnosticsLog(
         synchronized(lock) {
             recent.addLast(entry)
             while (recent.size > MAX_MEMORY_ENTRIES) recent.removeFirst()
-            runCatching { appendToFile(entry) }
+            lastWrite = writer.submit { runCatching { appendToFile(entry) } }
+        }
+    }
+
+    /** Waits for queued appends so an export always sees entries recorded before it. */
+    private fun awaitWritesLocked() {
+        try {
+            lastWrite?.get()
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } catch (e: Exception) {
+            // The in-memory list is the fallback when the file write failed.
         }
     }
 

@@ -9,15 +9,15 @@ plugins {
 }
 
 /**
- * Release signing is deliberately NOT hard-coded.
+ * Release signing is configurable, never hard-coded.
  *
  * Locally:
  *   android/keystore.properties  (git-ignored) with storeFile / storePassword / keyAlias / keyPassword
  * In CI:
  *   XINGCLASS_KEYSTORE_PATH / XINGCLASS_KEYSTORE_PASSWORD / XINGCLASS_KEY_ALIAS / XINGCLASS_KEY_PASSWORD
  *
- * When no keystore is available the release build is signed with the debug key so that the
- * artifact is still installable. That fallback must never be used to publish a production build.
+ * Packaging a release without a complete keystore fails: a debug-signed APK must never be
+ * mistaken for a publishable artifact.
  */
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore.properties")
@@ -37,6 +37,19 @@ val hasReleaseKeystore = !releaseStorePath.isNullOrBlank() &&
     !signingValue("XINGCLASS_KEY_ALIAS", "keyAlias").isNullOrBlank() &&
     !signingValue("XINGCLASS_KEY_PASSWORD", "keyPassword").isNullOrBlank()
 
+// Fail before a release artifact is packaged instead of silently emitting a debug-signed APK.
+val releasePackagingTasks = setOf("assembleRelease", "bundleRelease", "packageRelease")
+gradle.taskGraph.whenReady {
+    val packagesRelease = allTasks.any { it.name in releasePackagingTasks }
+    if (packagesRelease && !hasReleaseKeystore) {
+        throw GradleException(
+            "Release signing is required. Configure XINGCLASS_KEYSTORE_PATH, " +
+                "XINGCLASS_KEYSTORE_PASSWORD, XINGCLASS_KEY_ALIAS and XINGCLASS_KEY_PASSWORD, " +
+                "or put storeFile/storePassword/keyAlias/keyPassword in android/keystore.properties.",
+        )
+    }
+}
+
 android {
     namespace = "com.xingclass.app"
     compileSdk = 35
@@ -45,8 +58,8 @@ android {
         applicationId = "com.xingclass.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.2.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -82,7 +95,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
@@ -114,10 +127,6 @@ android {
         disable += setOf("MissingTranslation", "ExtraTranslation", "ChromeOsAbiSupport")
     }
 
-    testOptions {
-        unitTests.isReturnDefaultValues = true
-    }
-
     // AGP's public VariantOutput API has no filename property yet, so the stable (if deprecated)
     // applicationVariants hook is used to produce the agreed artifact name:
     // XingClass-arm64-v8a-debug.apk / XingClass-arm64-v8a-release.apk
@@ -132,6 +141,7 @@ android {
 }
 
 kotlin {
+    jvmToolchain(17)
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
         freeCompilerArgs.add("-Xjvm-default=all")

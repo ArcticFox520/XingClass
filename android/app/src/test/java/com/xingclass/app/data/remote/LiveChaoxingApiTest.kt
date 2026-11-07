@@ -63,7 +63,7 @@ class LiveChaoxingApiTest {
 
         val courses = CourseMapper().toCourses(current.lessons)
         assertTrue("no lesson could be mapped into the grid", courses.isNotEmpty())
-        // Every lesson in the verified payload must resolve to a grid slot. A mismatch means
+        // Every lesson in the real payload must resolve to a grid slot. A mismatch means
         // the parser/mapper lost a field, which is exactly what this live test exists to catch.
         assertTrue(
             "parser mapped fewer lessons than it parsed (${courses.size}/${current.lessons.size})",
